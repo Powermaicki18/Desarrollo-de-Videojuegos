@@ -1,0 +1,2 @@
+C:\Users\Usuario\Documents\GitHub\Desarrollo-de-Videojuegos\Proyecto Final Desarrollo\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\CMakeLists.txt
+C:\Users\Usuario\Documents\GitHub\Desarrollo-de-Videojuegos\Proyecto Final Desarrollo\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\GameActivity\CMakeLists.txt

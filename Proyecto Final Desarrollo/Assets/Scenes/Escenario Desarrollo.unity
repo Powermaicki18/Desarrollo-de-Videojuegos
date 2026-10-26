@@ -3288,6 +3288,39 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 813db68ab5e9ffa4fb4aa0618bdc4731, type: 3}
   m_PrefabInstance: {fileID: 333727219}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &347944325
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 347944326}
+  m_Layer: 0
+  m_Name: HUD
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &347944326
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 347944325}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 8.78242, y: 2.44132, z: -26.45646}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1564137303}
+  - {fileID: 543308153}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &354311565
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4832,6 +4865,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: fc7636fbf6669a14f82a73be796f0332, type: 3}
   m_PrefabInstance: {fileID: 526145785}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &543308152
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 543308153}
+  - component: {fileID: 543308154}
+  m_Layer: 0
+  m_Name: MobileControls
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &543308153
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 543308152}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.0074100494, y: -0.18314004, z: -0.0017490387}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 347944326}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &543308154
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 543308152}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 479e8e88114d04443bc5b0378ed25117, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MobileControls
+  player: {fileID: 0}
+  showOnPC: 1
+  joystickRadius: 120
+  joystickRestOffset: {x: 280, y: 260}
+  joystickAreaWidth: 0.5
+  attackPosition: {x: -230, y: 230}
+  attackSize: 220
+  attackColor: {r: 1, g: 0.45, b: 0.2, a: 1}
+  superPosition: {x: -490, y: 330}
+  superSize: 170
+  superChargingColor: {r: 1, g: 0.65, b: 0.1, a: 1}
+  superReadyColor: {r: 0.2, g: 0.9, b: 1, a: 1}
+  superDeniedColor: {r: 1, g: 0.25, b: 0.25, a: 1}
 --- !u!1001 &555693638
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -13783,7 +13873,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1564137302
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -13811,12 +13901,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1564137301}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 8.78983, y: 2.25818, z: -26.45821}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.0074100494, y: -0.18314004, z: -0.0017490387}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 347944326}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1568644303
 PrefabInstance:
@@ -18132,4 +18222,4 @@ SceneRoots:
   - {fileID: 1281750920}
   - {fileID: 616516108}
   - {fileID: 647337536}
-  - {fileID: 1564137303}
+  - {fileID: 347944326}
