@@ -31,11 +31,21 @@ public class MobileControls : MonoBehaviour
     public Color superReadyColor = new Color(0.2f, 0.9f, 1f);
     public Color superDeniedColor = new Color(1f, 0.25f, 0.25f);
 
+    [Header("Diseño (opcional): si un campo queda vacío se usa el círculo de siempre")]
+    public Sprite joystickBaseSprite;
+    public Sprite joystickKnobSprite;
+    public Sprite attackSprite;
+    public Sprite superSprite;
+    [Range(0f, 1f)] public float joystickBaseAlpha = 1f;
+    [Range(0f, 1f)] public float joystickMinAlpha = 1f;   // opacidad mínima del joystick (1 = nunca se ve transparente)
+
     Canvas canvas;
     Sprite circle, ring;
     HoldButton attackBtn, superBtn;
     Image superBg, superRing, superOverlay;
     Text superText;
+    CanvasGroup joyGroup;
+    Image joyBaseImg, joyKnobImg;
     readonly List<Object> created = new List<Object>();
 
     void Awake()
@@ -65,6 +75,15 @@ public class MobileControls : MonoBehaviour
         BuildSuperButton();
     }
 
+    void LateUpdate()
+    {
+        // corre después del VirtualJoystick: evita que el diseño quede medio transparente en reposo
+        if (joyGroup && joystickBaseSprite && joyGroup.alpha < joystickMinAlpha) joyGroup.alpha = joystickMinAlpha;
+        // también las imágenes: el VirtualJoystick puede bajarles el color/alpha
+        if (joystickBaseSprite && joyBaseImg) joyBaseImg.color = new Color(1f, 1f, 1f, joystickBaseAlpha);
+        if (joystickKnobSprite && joyKnobImg) joyKnobImg.color = Color.white;
+    }
+
     void Update()
     {
         if (!player) return;
@@ -79,7 +98,21 @@ public class MobileControls : MonoBehaviour
         Color c = ready
             ? Color.Lerp(superReadyColor, Color.white, (0.5f + 0.5f * Mathf.Sin(Time.time * 6f)) * 0.4f)
             : superChargingColor;
-        if (Time.time - player.LastSuperDeniedTime < 0.25f) c = superDeniedColor;
+        bool denied = Time.time - player.LastSuperDeniedTime < 0.25f;
+        if (denied) c = superDeniedColor;
+
+        if (superSprite)
+        {
+            // con diseño propio: se ve el arte tal cual; solo late al estar listo y se pone rojo si se niega
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 6f);
+            Color tint = Color.white;
+            if (denied) tint = superDeniedColor;
+            else if (ready) tint = Color.Lerp(Color.white, superReadyColor, pulse * 0.35f);
+            superBg.color = tint;
+            superText.text = ready ? "" : Mathf.CeilToInt(player.SuperCooldownRemaining).ToString();
+            superText.fontSize = 60;
+            return;
+        }
 
         superRing.color = c;
         superBg.color = new Color(c.r, c.g, c.b, 0.55f);
@@ -114,16 +147,32 @@ public class MobileControls : MonoBehaviour
 
         // Base
         var baseImg = MakeImage("Base", areaRT, circle, new Color(1f, 1f, 1f, 0.12f));
+        if (joystickBaseSprite)
+        {
+            baseImg.sprite = joystickBaseSprite;
+            baseImg.color = new Color(1f, 1f, 1f, joystickBaseAlpha);
+            baseImg.preserveAspect = true;
+        }
         var baseRT = baseImg.rectTransform;
         CenterAnchored(baseRT, Vector2.one * joystickRadius * 2f);
         var group = baseRT.gameObject.AddComponent<CanvasGroup>();
+        joyGroup = group;
+        joyBaseImg = baseImg;
         var baseRing = MakeImage("Ring", baseRT, ring, new Color(1f, 1f, 1f, 0.55f));
         Stretch(baseRing.rectTransform, 0f);
+        baseRing.enabled = !joystickBaseSprite;     // con diseño propio no hace falta el aro
 
         // Botón central
         var knobImg = MakeImage("Knob", baseRT, circle, new Color(1f, 1f, 1f, 0.6f));
         CenterAnchored(knobImg.rectTransform, Vector2.one * joystickRadius * 0.9f);
+        if (joystickKnobSprite)
+        {
+            knobImg.sprite = joystickKnobSprite;
+            knobImg.color = Color.white;
+            knobImg.preserveAspect = true;
+        }
 
+        joyKnobImg = knobImg;
         var joy = areaRT.gameObject.AddComponent<VirtualJoystick>();
         joy.baseRect = baseRT;
         joy.knobRect = knobImg.rectTransform;
@@ -134,20 +183,27 @@ public class MobileControls : MonoBehaviour
 
     void BuildAttackButton()
     {
-        attackBtn = BuildButton("AttackButton", attackPosition, attackSize, attackColor,
+        attackBtn = BuildButton("AttackButton", attackPosition, attackSize, attackColor, attackSprite,
                                 out _, out _, out Text label, out _);
-        label.text = "GOLPE";
+        label.text = attackSprite ? "" : "GOLPE";   // con diseño propio el ícono ya lo dice
         label.fontSize = 36;
     }
 
     void BuildSuperButton()
     {
-        superBtn = BuildButton("SuperButton", superPosition, superSize, superChargingColor,
+        superBtn = BuildButton("SuperButton", superPosition, superSize, superChargingColor, superSprite,
                                out superBg, out superRing, out superText, out superOverlay);
+        if (superSprite)
+        {
+            // el número de la cuenta regresiva lleva contorno para leerse sobre el diseño
+            var o = superText.gameObject.AddComponent<Outline>();
+            o.effectColor = new Color(0.2f, 0.1f, 0.05f, 1f);
+            o.effectDistance = new Vector2(3f, -3f);
+        }
         superBtn.onDown = () => { if (player) player.SuperAttack(); };
     }
 
-    HoldButton BuildButton(string name, Vector2 pos, float size, Color color,
+    HoldButton BuildButton(string name, Vector2 pos, float size, Color color, Sprite skin,
                            out Image bg, out Image ringImg, out Text label, out Image overlay)
     {
         var rt = MakeRect(name, canvas.transform);
@@ -169,6 +225,17 @@ public class MobileControls : MonoBehaviour
         overlay.fillMethod = Image.FillMethod.Radial360;
         overlay.fillOrigin = (int)Image.Origin360.Top;
         overlay.fillAmount = 0f;
+
+        if (skin)
+        {
+            bg.sprite = skin;
+            bg.color = Color.white;
+            bg.preserveAspect = true;
+            ringImg.enabled = false;
+            overlay.sprite = skin;                         // el oscurecido de la recarga toma la forma del diseño
+            overlay.color = new Color(0f, 0f, 0f, 0.6f);
+            overlay.preserveAspect = true;
+        }
 
         label = MakeText("Label", rt);
         Stretch(label.rectTransform, 0f);

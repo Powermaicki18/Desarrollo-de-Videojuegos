@@ -1,0 +1,35 @@
+newmtl CA_Fuego
+Kd 1.0000 0.4784 0.1216
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_FuegoClaro
+Kd 1.0000 0.8314 0.3608
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_MaderaOscura
+Kd 0.3686 0.2314 0.1569
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_Piedra
+Kd 0.6392 0.6275 0.6824
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_PiedraOscura
+Kd 0.4314 0.4196 0.4824
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+

@@ -60,7 +60,7 @@ public class Health : MonoBehaviour
 
     void OnGUI()
     {
-        if (!showDebugBar || !Camera.main) return;
+        if (!showDebugBar || IsDead || !Camera.main) return;
         Vector3 sp = Camera.main.WorldToScreenPoint(transform.position + Vector3.up * barHeight);
         if (sp.z < 0) return;
         float w = 70f, h = 9f;

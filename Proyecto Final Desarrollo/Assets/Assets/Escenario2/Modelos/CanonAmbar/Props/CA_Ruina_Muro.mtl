@@ -1,0 +1,14 @@
+newmtl CA_Piedra
+Kd 0.6392 0.6275 0.6824
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_PiedraOscura
+Kd 0.4314 0.4196 0.4824
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+

@@ -6,8 +6,10 @@ using UnityEngine.Events;
 
 public class EnemySpawner : MonoBehaviour
 {
-    [Header("Enemigos (se elige uno al azar)")]
+    [Header("Enemigos")]
     public GameObject[] enemyPrefabs;
+    [Tooltip("Probabilidad relativa de cada prefab (mismo orden). Vacío = todos igual")]
+    public float[] spawnWeights;
 
     [Header("Oleadas (enemigos por horda; la última es la final)")]
     public int[] waveSizes = { 3, 5, 8, 12, 20 };
@@ -27,7 +29,10 @@ public class EnemySpawner : MonoBehaviour
     public LayerMask groundMask = ~0;
     public LayerMask blockMask = 0;
     public float spawnHeightOffset = 0.6f;
-    public bool useNavMesh = false;
+    public bool useNavMesh = true;           // aparece solo sobre NavMesh caminable (evita el abismo)
+    [Tooltip("Altura mínima/máxima del suelo donde pueden aparecer (el abismo está en y=-4)")]
+    public float minGroundY = -1f;
+    public float maxGroundY = 1.5f;
 
     [Header("Variación procedural")]
     [Range(0f, 0.3f)] public float scaleVariation = 0.1f;
@@ -42,6 +47,8 @@ public class EnemySpawner : MonoBehaviour
     public bool showDebugHud = true;
 
     public int CurrentWave { get; private set; }
+    public int PendingSpawns { get; private set; }            // enemigos de la horda que aún no han salido
+    public int EnemiesRemaining => Alive() + PendingSpawns;   // vivos + por salir
 
     readonly List<GameObject> spawned = new List<GameObject>();
     Health playerHealth;
@@ -57,7 +64,7 @@ public class EnemySpawner : MonoBehaviour
         StartCoroutine(Run());
     }
 
-    int Alive()
+    public int Alive()
     {
         spawned.RemoveAll(e => e == null);
         int n = 0;
@@ -89,13 +96,16 @@ public class EnemySpawner : MonoBehaviour
             onWaveStarted?.Invoke();
             if (isFinal) onFinalWaveStarted?.Invoke();
 
+            PendingSpawns = count;
             for (int i = 0; i < count; i++)
             {
                 while (Alive() >= maxAlive || !PlayerAlive()) yield return null;
                 SpawnOne();
+                PendingSpawns--;
                 yield return new WaitForSeconds(interval);
             }
 
+            PendingSpawns = 0;
             while (Alive() > 0) yield return null;   // espera a que mueran todos
             onWaveCleared?.Invoke();
 
@@ -104,10 +114,29 @@ public class EnemySpawner : MonoBehaviour
         onAllWavesCleared?.Invoke();
     }
 
+    // Elige un prefab según las probabilidades (o al azar si no hay)
+    GameObject PickPrefab()
+    {
+        if (spawnWeights == null || spawnWeights.Length != enemyPrefabs.Length)
+            return enemyPrefabs[Random.Range(0, enemyPrefabs.Length)];
+
+        float total = 0f;
+        foreach (var w in spawnWeights) total += Mathf.Max(0f, w);
+        if (total <= 0f) return enemyPrefabs[Random.Range(0, enemyPrefabs.Length)];
+
+        float r = Random.value * total;
+        for (int i = 0; i < enemyPrefabs.Length; i++)
+        {
+            r -= Mathf.Max(0f, spawnWeights[i]);
+            if (r <= 0f) return enemyPrefabs[i];
+        }
+        return enemyPrefabs[enemyPrefabs.Length - 1];
+    }
+
     void SpawnOne()
     {
         if (enemyPrefabs == null || enemyPrefabs.Length == 0 || !player) return;
-        var prefab = enemyPrefabs[Random.Range(0, enemyPrefabs.Length)];
+        var prefab = PickPrefab();
         if (!prefab || !TryGetSpawnPoint(out Vector3 pos)) return;
 
         var e = Instantiate(prefab, pos, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
@@ -133,12 +162,16 @@ public class EnemySpawner : MonoBehaviour
             Vector3 from = new Vector3(p.x, player.position.y + 50f, p.z);
             if (!Physics.Raycast(from, Vector3.down, out RaycastHit hit, 120f, groundMask, QueryTriggerInteraction.Ignore)) continue;
             if (hit.normal.y < 0.7f) continue;
+            if (hit.point.y < minGroundY || hit.point.y > maxGroundY) continue;   // abismo / mesas / muros
             if (hit.collider.GetComponentInParent<Health>() != null) continue;
 
             Vector3 pos = hit.point;
             if (useNavMesh)
             {
-                if (!NavMesh.SamplePosition(pos, out NavMeshHit nh, 2f, NavMesh.AllAreas)) continue;
+                if (!NavMesh.SamplePosition(pos, out NavMeshHit nh, 1.5f, NavMesh.AllAreas)) continue;
+                Vector3 dxz = nh.position - pos; dxz.y = 0f;
+                if (dxz.magnitude > 1.2f) continue;                                // no "saltar" por encima del hueco
+                if (nh.position.y < minGroundY || nh.position.y > maxGroundY) continue;
                 pos = nh.position;
             }
             if (blockMask.value != 0 &&

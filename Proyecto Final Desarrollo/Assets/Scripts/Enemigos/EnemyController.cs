@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -9,24 +10,33 @@ public class EnemyController : MonoBehaviour
     public float turnSpeed = 360f;
     public float gravity = -25f;
 
+    [Header("Vuelo")]
+    public bool isFlying = false;
+    public float flyHeight = 2f;            // altura sobre el jugador
+    public float bobAmplitude = 0.25f;      // vaivén vertical
+    public float bobSpeed = 2f;
+    public float verticalSpeed = 3f;        // qué tan rápido sube o baja a su altura
+
     [Header("IA")]
     public float detectRange = 12f;
     public float attackRange = 1.6f;        // se mide hasta el borde del hurtbox del jugador
     public float attackCooldown = 1.5f;
     public float attackLockTime = 1.0f;     // duración del clip de ataque
 
-    [Header("NavMesh")]
+    [Header("NavMesh (solo terrestres)")]
     public bool useNavMesh = true;
-    public float repathInterval = 0.25f;    // cada cuánto recalcula la ruta
+    public float repathInterval = 0.25f;
     public float cornerReachDistance = 0.4f;
 
     [Header("Daño")]
     public float damage = 10f;
-    public float hitDelay = 0.4f;           // segundos desde que empieza el ataque hasta que pega
-    public float hitRangeExtra = 0.5f;      // margen extra por si el jugador se mueve
+    public float hitDelay = 0.4f;
+    public float hitRangeExtra = 0.5f;
 
     [Header("Muerte")]
-    public float destroyDelay = 1.5f;       // segundos hasta desaparecer tras morir
+    public float destroyDelay = 2.5f;       // segundos que se ve el cuerpo (>= duración del clip)
+    public float sinkTime = 0.8f;
+    public float sinkDistance = 1.2f;
 
     [Header("Referencias")]
     public Animator animator;
@@ -35,8 +45,9 @@ public class EnemyController : MonoBehaviour
     CharacterController cc;
     Health health;
     Health targetHealth;
-    float verticalVel, lockUntil, nextAttack, hitAt;
-    bool hitPending, dead;
+    float verticalVel, lockUntil, nextAttack, hitAt, bobPhase, hoverY;
+    bool hitPending, dead, hasHoverY;
+    bool hasSpeed, hasAttack, hasDie;
 
     NavMeshPath path;
     Vector3[] corners;
@@ -45,15 +56,26 @@ public class EnemyController : MonoBehaviour
 
     static readonly int SpeedHash = Animator.StringToHash("Speed");
     static readonly int AttackHash = Animator.StringToHash("Attack");
+    static readonly int DieHash = Animator.StringToHash("Die");
 
     void Awake()
     {
         cc = GetComponent<CharacterController>();
         health = GetComponent<Health>();
         path = new NavMeshPath();
-        repathAt = Time.time + Random.value * repathInterval;   // reparte el cálculo entre enemigos
+        repathAt = Time.time + Random.value * repathInterval;
+        bobPhase = Random.value * 6.28f;
         if (!animator) animator = GetComponentInChildren<Animator>();
-        if (animator) animator.applyRootMotion = false;
+        if (animator)
+        {
+            animator.applyRootMotion = false;
+            foreach (var p in animator.parameters)          // solo usa los parámetros que existan
+            {
+                if (p.nameHash == SpeedHash) hasSpeed = true;
+                if (p.nameHash == AttackHash) hasAttack = true;
+                if (p.nameHash == DieHash) hasDie = true;
+            }
+        }
     }
 
     void Update()
@@ -65,9 +87,14 @@ public class EnemyController : MonoBehaviour
         {
             dead = true;
             hitPending = false;
-            if (animator) animator.SetFloat(SpeedHash, 0f);
-            cc.enabled = false;
-            Destroy(gameObject, destroyDelay);   // luego se cambia por una animación de muerte
+            if (!isFlying) cc.enabled = false;              // el volador sigue activo para caer al suelo
+            if (animator)
+            {
+                if (hasSpeed) animator.SetFloat(SpeedHash, 0f);
+                if (hasAttack) animator.ResetTrigger(AttackHash);
+                if (hasDie) animator.SetTrigger(DieHash);
+            }
+            StartCoroutine(DeathRoutine());
             return;
         }
 
@@ -89,8 +116,6 @@ public class EnemyController : MonoBehaviour
             to.y = 0;
             float dist = to.magnitude;
             Vector3 dir = dist > 0.01f ? to / dist : Vector3.zero;
-
-            // distancia hasta el borde del jugador (la caja ancha con los brazos)
             float edgeDist = EdgeDistance();
 
             if (!busy)
@@ -104,34 +129,74 @@ public class EnemyController : MonoBehaviour
                         lockUntil = Time.time + attackLockTime;
                         hitAt = Time.time + hitDelay;
                         hitPending = true;
-                        if (animator) animator.SetTrigger(AttackHash);
+                        if (animator && hasAttack) animator.SetTrigger(AttackHash);
                     }
                 }
                 else if (dist <= detectRange)
                 {
-                    Vector3 moveDir = useNavMesh ? PathDirection(target.position, dir) : dir;
+                    bool useNav = useNavMesh && !isFlying;
+                    Vector3 moveDir = useNav ? PathDirection(target.position, dir) : dir;
                     Face(moveDir);
                     move = moveDir * moveSpeed;
                 }
             }
         }
 
-        // Momento del golpe
         if (hitPending && Time.time >= hitAt)
         {
             hitPending = false;
             DealDamage();
         }
 
-        if (cc.isGrounded && verticalVel < 0) verticalVel = -2f;
-        verticalVel += gravity * Time.deltaTime;
-        cc.Move((move + Vector3.up * verticalVel) * Time.deltaTime);
+        Vector3 velocity = move;
+        if (isFlying)
+        {
+            // Flota a flyHeight sobre el jugador, con un leve vaivén. Sin gravedad.
+            if (target) { hoverY = target.position.y + flyHeight; hasHoverY = true; }
+            if (!hasHoverY) { hoverY = transform.position.y; hasHoverY = true; }
+            float desiredY = hoverY + Mathf.Sin(Time.time * bobSpeed + bobPhase) * bobAmplitude;
+            velocity.y = Mathf.Clamp((desiredY - transform.position.y) * 3f, -verticalSpeed, verticalSpeed);
+        }
+        else
+        {
+            if (cc.isGrounded && verticalVel < 0) verticalVel = -2f;
+            verticalVel += gravity * Time.deltaTime;
+            velocity.y = verticalVel;
+        }
+        cc.Move(velocity * Time.deltaTime);
 
-        if (animator)
+        if (animator && hasSpeed)
             animator.SetFloat(SpeedHash, move.magnitude, 0.1f, Time.deltaTime);
     }
 
-    // Distancia horizontal hasta el punto más cercano del jugador (hurtbox o centro)
+    // Cae al suelo (si vuela), se queda tirado mientras suena la animación, se hunde y desaparece
+    IEnumerator DeathRoutine()
+    {
+        if (isFlying)
+        {
+            float vy = 0f, limit = Time.time + 2f;
+            while (!cc.isGrounded && Time.time < limit)
+            {
+                vy += gravity * Time.deltaTime;
+                cc.Move(Vector3.up * vy * Time.deltaTime);
+                yield return null;
+            }
+            cc.enabled = false;
+        }
+
+        yield return new WaitForSeconds(destroyDelay);
+
+        Vector3 start = transform.position;
+        float t = 0f;
+        while (t < sinkTime)
+        {
+            t += Time.deltaTime;
+            transform.position = start + Vector3.down * sinkDistance * Mathf.Clamp01(t / sinkTime);
+            yield return null;
+        }
+        Destroy(gameObject);
+    }
+
     float EdgeDistance()
     {
         Vector3 edge = targetHealth ? targetHealth.ClosestPoint(transform.position) : target.position;
@@ -139,8 +204,6 @@ public class EnemyController : MonoBehaviour
         return (edge - transform.position).magnitude;
     }
 
-    // Dirección hacia la siguiente esquina del camino del NavMesh.
-    // Si no hay ruta (NavMesh sin hornear, fuera de la malla), va en línea recta.
     Vector3 PathDirection(Vector3 targetPos, Vector3 directDir)
     {
         if (Time.time >= repathAt)
@@ -172,7 +235,6 @@ public class EnemyController : MonoBehaviour
         return toCorner.sqrMagnitude > 0.001f ? toCorner.normalized : directDir;
     }
 
-    // También se puede llamar desde un Animation Event del clip de ataque
     public void DealDamage()
     {
         if (dead || !target || targetHealth == null || targetHealth.IsDead) return;
