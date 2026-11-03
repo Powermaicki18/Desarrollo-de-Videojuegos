@@ -1,0 +1,28 @@
+newmtl CA_MaderaOscura
+Kd 0.3686 0.2314 0.1569
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_Oscuro
+Kd 0.1647 0.1137 0.1020
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_TelaRoja
+Kd 0.8471 0.2784 0.2353
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_TelaTeal
+Kd 0.1843 0.6549 0.6275
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+

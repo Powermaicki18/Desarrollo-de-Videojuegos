@@ -1,0 +1,14 @@
+newmtl CA_Madera
+Kd 0.5608 0.3569 0.2275
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_MaderaOscura
+Kd 0.3686 0.2314 0.1569
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+

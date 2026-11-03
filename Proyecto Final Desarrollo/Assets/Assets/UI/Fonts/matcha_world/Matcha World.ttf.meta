@@ -1,0 +1,22 @@
+fileFormatVersion: 2
+guid: ac3caaa0163f17e4097679e52634d35b
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontNames:
+  - Matcha World
+  fallbackFontReferences:
+  - {fileID: 12800000, guid: d1afd611c0fe16b4ea8470895043f642, type: 3}
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

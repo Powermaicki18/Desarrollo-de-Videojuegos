@@ -1,0 +1,56 @@
+newmtl CA_FuegoClaro
+Kd 1.0000 0.8314 0.3608
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_MaderaClara
+Kd 0.7529 0.5412 0.3333
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_Oscuro
+Kd 0.1647 0.1137 0.1020
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_Piedra
+Kd 0.6392 0.6275 0.6824
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_PiedraOscura
+Kd 0.4314 0.4196 0.4824
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_TelaCrema
+Kd 0.9451 0.8902 0.7608
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_TelaRoja
+Kd 0.8471 0.2784 0.2353
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_TelaTeal
+Kd 0.1843 0.6549 0.6275
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+

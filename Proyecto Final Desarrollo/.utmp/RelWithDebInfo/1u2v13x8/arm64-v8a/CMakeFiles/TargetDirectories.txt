@@ -1,0 +1,5 @@
+C:/Users/Usuario/Documents/GitHub/Desarrollo-de-Videojuegos/Proyecto Final Desarrollo/.utmp/RelWithDebInfo/1u2v13x8/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/Usuario/Documents/GitHub/Desarrollo-de-Videojuegos/Proyecto Final Desarrollo/.utmp/RelWithDebInfo/1u2v13x8/arm64-v8a/CMakeFiles/rebuild_cache.dir
+C:/Users/Usuario/Documents/GitHub/Desarrollo-de-Videojuegos/Proyecto Final Desarrollo/.utmp/RelWithDebInfo/1u2v13x8/arm64-v8a/GameActivity/CMakeFiles/game.dir
+C:/Users/Usuario/Documents/GitHub/Desarrollo-de-Videojuegos/Proyecto Final Desarrollo/.utmp/RelWithDebInfo/1u2v13x8/arm64-v8a/GameActivity/CMakeFiles/edit_cache.dir
+C:/Users/Usuario/Documents/GitHub/Desarrollo-de-Videojuegos/Proyecto Final Desarrollo/.utmp/RelWithDebInfo/1u2v13x8/arm64-v8a/GameActivity/CMakeFiles/rebuild_cache.dir

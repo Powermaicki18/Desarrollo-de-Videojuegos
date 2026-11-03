@@ -1,0 +1,14 @@
+newmtl CA_Pasto
+Kd 0.7882 0.7216 0.2902
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_PastoVerde
+Kd 0.4980 0.6902 0.2902
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+

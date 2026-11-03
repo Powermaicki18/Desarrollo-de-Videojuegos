@@ -1,0 +1,49 @@
+newmtl CA_Madera
+Kd 0.5608 0.3569 0.2275
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_MaderaOscura
+Kd 0.3686 0.2314 0.1569
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_Metal
+Kd 0.3569 0.3843 0.4392
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_Oscuro
+Kd 0.1647 0.1137 0.1020
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_RocaClara
+Kd 0.9490 0.6510 0.3529
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_RocaMedia
+Kd 0.8510 0.4588 0.2314
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
+newmtl CA_RocaRoja
+Kd 0.7608 0.2706 0.1765
+Ka 0 0 0
+Ks 0 0 0
+d 1
+illum 1
+
