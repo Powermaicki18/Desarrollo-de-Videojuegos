@@ -24,7 +24,7 @@ MonoBehaviour:
   m_MinSize: {x: 300, y: 112}
   m_MaxSize: {x: 24288, y: 16192}
   vertical: 0
-  controlID: 63
+  controlID: 6179
   draggingID: 0
 --- !u!114 &2
 MonoBehaviour:
@@ -153,7 +153,7 @@ MonoBehaviour:
   m_MinSize: {x: 200, y: 112}
   m_MaxSize: {x: 16192, y: 16192}
   vertical: 1
-  controlID: 64
+  controlID: 6180
   draggingID: 0
 --- !u!114 &4
 MonoBehaviour:
@@ -179,7 +179,7 @@ MonoBehaviour:
   m_MinSize: {x: 200, y: 56}
   m_MaxSize: {x: 16192, y: 8096}
   vertical: 0
-  controlID: 36
+  controlID: 6286
   draggingID: 0
 --- !u!114 &5
 MonoBehaviour:
@@ -785,9 +785,9 @@ MonoBehaviour:
     speed: 2
     m_Value: {x: -0.046070654, y: 0.0056983284, z: 0.0019052416, w: -0.9992772}
   m_Size:
-    m_Target: 315.42868
+    m_Target: 226.31836
     speed: 2
-    m_Value: 315.42868
+    m_Value: 226.31836
   m_Ortho:
     m_Target: 0
     speed: 2
@@ -996,16 +996,27 @@ MonoBehaviour:
     m_DynamicPanelBehavior: 0
   m_SceneHierarchy:
     m_TreeViewState:
-      scrollPos: {x: 0, y: 19.5}
+      scrollPos: {x: 0, y: 131.5}
       m_SelectedIDs:
-      - m_Data: 50858
+      - m_Data: -37860
       m_LastClickedID:
-        m_Data: 50858
+        m_Data: -37860
       m_ExpandedIDs:
+      - m_Data: -37860
+      - m_Data: -37852
+      - m_Data: -37778
+      - m_Data: -33324
+      - m_Data: -32770
+      - m_Data: -27552
+      - m_Data: -27136
+      - m_Data: -26760
+      - m_Data: -26752
+      - m_Data: -26742
+      - m_Data: -22344
       - m_Data: -1312
       - m_Data: 48634
       - m_Data: 49228
-      - m_Data: 49636
+      - m_Data: 84848
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -1093,7 +1104,7 @@ MonoBehaviour:
   m_MinSize: {x: 200, y: 56}
   m_MaxSize: {x: 16192, y: 8096}
   vertical: 0
-  controlID: 65
+  controlID: 6181
   draggingID: 0
 --- !u!114 &12
 MonoBehaviour:
@@ -1198,7 +1209,7 @@ MonoBehaviour:
     m_SkipHidden: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/Scripts/Enemigos
+    - Assets/UI/Comic_Final
     m_Globs: []
     m_ProductIds: 
     m_AnyWithAssetOrigin: 0
@@ -1208,7 +1219,7 @@ MonoBehaviour:
   m_ViewMode: 1
   m_StartGridSize: 64
   m_LastFolders:
-  - Assets/Scripts/Enemigos
+  - Assets/UI/Comic_Final
   m_LastFoldersGridSize: -1
   m_LastProjectPath: C:\Users\USER\Desktop\Desarrollo-de-Videojuegos\Proyecto Final
     Desarrollo
@@ -1216,15 +1227,15 @@ MonoBehaviour:
     m_IsLocked: 0
   m_LastLocalAssetsSearchArea: 1
   m_FolderTreeState:
-    scrollPos: {x: 0, y: 0}
+    scrollPos: {x: 0, y: 59.5}
     m_SelectedIDs:
-    - m_Data: 54484
+    - m_Data: 81562
     m_LastClickedID:
-      m_Data: 54484
+      m_Data: 81562
     m_ExpandedIDs:
     - m_Data: 0
     - m_Data: 54318
-    - m_Data: 54452
+    - m_Data: 54460
     - m_Data: 1000000000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
@@ -1259,6 +1270,7 @@ MonoBehaviour:
     m_ExpandedIDs:
     - m_Data: 0
     - m_Data: 54318
+    - m_Data: 1000000000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -1286,9 +1298,9 @@ MonoBehaviour:
       m_ResourceFile: 
   m_ListAreaState:
     m_SelectedInstanceIDs:
-    - m_Data: 50858
-    m_LastClickedInstanceID: 50858
-    m_HadKeyboardFocusLastEvent: 1
+    - m_Data: -37860
+    m_LastClickedInstanceID: -37860
+    m_HadKeyboardFocusLastEvent: 0
     m_ExpandedInstanceIDs:
     - m_Data: 0
     - m_Data: 0
