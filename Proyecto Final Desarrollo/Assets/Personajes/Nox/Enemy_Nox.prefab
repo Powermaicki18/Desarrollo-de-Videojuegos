@@ -73,7 +73,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f64fbc9dc22a6d41b8425ef77478eba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyController
-  moveSpeed: 3
+  moveSpeed: 5
   turnSpeed: 360
   gravity: -25
   isFlying: 1
@@ -81,14 +81,14 @@ MonoBehaviour:
   bobAmplitude: 0.25
   bobSpeed: 3.5
   verticalSpeed: 3
-  detectRange: 14
+  detectRange: 20
   attackRange: 0.8
   attackCooldown: 1.5
   attackLockTime: 1
   useNavMesh: 1
   repathInterval: 0.25
   cornerReachDistance: 0.4
-  damage: 8
+  damage: 12
   hitDelay: 0.4
   hitRangeExtra: 0.5
   destroyDelay: 1.1
@@ -131,8 +131,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlogDropOnDeath
   pickupPrefab: {fileID: 1872060218704517516, guid: 340481d386446e24db0f38921f41a57a, type: 3}
-  dropChance: 0.242
-  offset: {x: 0, y: 0.3, z: 0}
+  dropChance: 0.214
+  offset: {x: 0, y: 0.1, z: 0}
 --- !u!1001 &8022618452938248410
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -2,6 +2,8 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using TMPro;
 
 public class InstruccionesController : MonoBehaviour, IPointerDownHandler
 {
@@ -17,6 +19,13 @@ public class InstruccionesController : MonoBehaviour, IPointerDownHandler
     [SerializeField] private float escalaInicial = 0.75f;
     [SerializeField] private float escalaRebote = 1.05f;
 
+    [Header("Boton SKIP")]
+    [Tooltip("Si lo dejas vacio, el boton se crea solo por codigo.")]
+    [SerializeField] private Button botonSkip;
+    [SerializeField] private string textoSkip = "SALTAR";
+    [SerializeField] private Vector2 tamanoSkip = new Vector2(260f, 90f);
+    [SerializeField] private Vector2 margenSkip = new Vector2(40f, 40f);
+
     private bool instruccionesTerminadas = false;
     private Vector3 escalaOriginal;
 
@@ -31,12 +40,57 @@ public class InstruccionesController : MonoBehaviour, IPointerDownHandler
         // Mostrar las instrucciones
         panelInstrucciones.SetActive(true);
 
+        CrearBotonSkip();
+
         // Pausar el juego
         Time.timeScale = 0f;
 
         // Iniciar animacion y temporizador
         StartCoroutine(AnimarEntrada());
         StartCoroutine(TemporizadorInstrucciones());
+    }
+
+    private void CrearBotonSkip()
+    {
+        if (botonSkip == null)
+        {
+            GameObject go = new GameObject("BotonSkip", typeof(RectTransform));
+            go.transform.SetParent(panelInstrucciones.transform, false);
+
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1f, 0f);
+            rt.anchorMax = new Vector2(1f, 0f);
+            rt.pivot = new Vector2(1f, 0f);
+            rt.sizeDelta = tamanoSkip;
+            rt.anchoredPosition = new Vector2(-margenSkip.x, margenSkip.y);
+
+            Image fondo = go.AddComponent<Image>();
+            fondo.color = new Color(0f, 0f, 0f, 0.65f);
+
+            botonSkip = go.AddComponent<Button>();
+            botonSkip.targetGraphic = fondo;
+
+            GameObject txt = new GameObject("Texto", typeof(RectTransform));
+            txt.transform.SetParent(go.transform, false);
+
+            RectTransform trt = txt.GetComponent<RectTransform>();
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
+
+            TextMeshProUGUI tmp = txt.AddComponent<TextMeshProUGUI>();
+            tmp.text = textoSkip + "  >>";
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontSize = 40f;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.color = Color.white;
+            tmp.raycastTarget = false;
+        }
+
+        botonSkip.onClick.RemoveListener(ComenzarJuego);
+        botonSkip.onClick.AddListener(ComenzarJuego);
+        botonSkip.transform.SetAsLastSibling();
     }
 
     private IEnumerator AnimarEntrada()
@@ -127,7 +181,8 @@ public class InstruccionesController : MonoBehaviour, IPointerDownHandler
             imagenInstrucciones.localScale = escalaOriginal;
         }
 
-        // Ocultar panel
+        // Ocultar boton SALTAR y panel
+        if (botonSkip != null) botonSkip.gameObject.SetActive(false);
         panelInstrucciones.SetActive(false);
 
         // Reanudar juego

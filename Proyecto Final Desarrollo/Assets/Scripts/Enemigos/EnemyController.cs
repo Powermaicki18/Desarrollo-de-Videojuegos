@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -28,6 +29,11 @@ public class EnemyController : MonoBehaviour
     public float repathInterval = 0.25f;
     public float cornerReachDistance = 0.4f;
 
+    [Header("Separacion entre enemigos (solo terrestres)")]
+    public bool useSeparation = true;
+    public float separationRadius = 1.4f;   // a que distancia se empujan entre si
+    public float separationStrength = 1.2f; // 0 = nada, 1+ = se abren bastante
+
     [Header("Daño")]
     public float damage = 10f;
     public float hitDelay = 0.4f;
@@ -54,6 +60,9 @@ public class EnemyController : MonoBehaviour
     int cornerIndex;
     float repathAt;
 
+    static readonly List<EnemyController> all = new List<EnemyController>();
+    bool warnedNoNavMesh;
+
     static readonly int SpeedHash = Animator.StringToHash("Speed");
     static readonly int AttackHash = Animator.StringToHash("Attack");
     static readonly int DieHash = Animator.StringToHash("Die");
@@ -77,6 +86,9 @@ public class EnemyController : MonoBehaviour
             }
         }
     }
+
+    void OnEnable() { all.Add(this); }
+    void OnDisable() { all.Remove(this); }
 
     void Update()
     {
@@ -136,6 +148,7 @@ public class EnemyController : MonoBehaviour
                 {
                     bool useNav = useNavMesh && !isFlying;
                     Vector3 moveDir = useNav ? PathDirection(target.position, dir) : dir;
+                    if (useSeparation && !isFlying) moveDir = AddSeparation(moveDir);
                     Face(moveDir);
                     move = moveDir * moveSpeed;
                 }
@@ -204,12 +217,39 @@ public class EnemyController : MonoBehaviour
         return (edge - transform.position).magnitude;
     }
 
+    // Empuja suavemente al enemigo lejos de otros cercanos para que no se amontonen
+    Vector3 AddSeparation(Vector3 dir)
+    {
+        Vector3 push = Vector3.zero;
+        float r2 = separationRadius * separationRadius;
+        for (int i = 0; i < all.Count; i++)
+        {
+            EnemyController o = all[i];
+            if (o == this || o.dead || o.isFlying) continue;
+            Vector3 d = transform.position - o.transform.position;
+            d.y = 0;
+            float sq = d.sqrMagnitude;
+            if (sq >= r2) continue;
+            float m = Mathf.Sqrt(sq);
+            if (m < 0.01f) { d = Random.insideUnitSphere; d.y = 0; m = 0.01f; }
+            push += d.normalized * (1f - m / separationRadius);
+        }
+        if (push == Vector3.zero) return dir;
+        Vector3 res = dir + push * separationStrength;
+        return res.sqrMagnitude > 0.001f ? res.normalized : dir;
+    }
+
     Vector3 PathDirection(Vector3 targetPos, Vector3 directDir)
     {
         if (Time.time >= repathAt)
         {
             repathAt = Time.time + repathInterval;
             corners = null;
+            if (!warnedNoNavMesh && !NavMesh.SamplePosition(transform.position, out _, 3f, NavMesh.AllAreas))
+            {
+                warnedNoNavMesh = true;
+                Debug.LogWarning("[EnemyController] " + name + " no esta sobre un NavMesh: camina en linea recta. Hornea el NavMesh de esta escena (NavMeshSurface > Bake).", this);
+            }
             if (NavMesh.SamplePosition(transform.position, out NavMeshHit a, 3f, NavMesh.AllAreas) &&
                 NavMesh.SamplePosition(targetPos, out NavMeshHit b, 3f, NavMesh.AllAreas) &&
                 NavMesh.CalculatePath(a.position, b.position, NavMesh.AllAreas, path) &&

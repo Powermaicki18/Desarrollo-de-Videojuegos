@@ -105,10 +105,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 1.2262126
-  m_Height: 3.8573189
+  m_Radius: 1.6920732
+  m_Height: 4.5796866
   m_Direction: 1
-  m_Center: {x: 0, y: 1.4286597, z: -0.03398961}
+  m_Center: {x: 0.0065647573, y: 1.4707773, z: 0.14335401}
 --- !u!114 &8022151774239632923
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -121,7 +121,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c251646057eb87948a6a43a633a99c0d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlogHealPickup
-  healAmount: 20
+  healAmount: 13
   lifetime: 12
+  pickupRadius: 1.6
+  maxHeightDiff: 3
+  magnetRadius: 2
+  magnetSpeed: 7
+  snapToGround: 1
+  groundOffset: 0.6
+  destroyIfBelowPlayer: 2.5
+  debugLog: 0
   bobHeight: 0.2
   spinSpeed: 90
