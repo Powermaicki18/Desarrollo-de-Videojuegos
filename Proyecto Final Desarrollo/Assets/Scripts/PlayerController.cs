@@ -76,6 +76,7 @@ public class PlayerController : MonoBehaviour
 
     CharacterController cc;
     Health health;
+    PlayerAudio audioFx;                                             // sonidos de Tuko
     Vector3 startPos;
     float verticalVel, lockUntil, superReadyAt, queuedAttackUntil;
     bool queuedAttack, wasBusy;
@@ -87,6 +88,7 @@ public class PlayerController : MonoBehaviour
     {
         cc = GetComponent<CharacterController>();
         health = GetComponent<Health>();
+        audioFx = GetComponent<PlayerAudio>();
         startPos = transform.position;
         if (!animator) animator = GetComponentInChildren<Animator>();
         if (!cameraTransform && Camera.main) cameraTransform = Camera.main.transform;
@@ -135,6 +137,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
         if (!DoAction(AttackHash, attackLockTime)) return;
+        if (audioFx) audioFx.PlayAttack();                           // ataque + grito (solo cuando el golpe sale de verdad)
         ApplyAnimSpeed(attackAnimLength, attackLockTime);
         StartCoroutine(HitWindow(attackHitDelay, attackHitDuration, attackTickInterval,
                                  attackDamage, attackRange, attackAngle));
@@ -149,6 +152,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
         if (!DoAction(SuperHash, superLockTime)) return;
+        if (audioFx) audioFx.PlaySuper();                            // sonido del súper
         if (animator) animator.speed = 1f;
 
         // La recarga empieza cuando termina la animación del súper

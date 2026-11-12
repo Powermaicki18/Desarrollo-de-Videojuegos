@@ -44,6 +44,7 @@ public class VictoriaController : MonoBehaviour
 
         // Detener la partida
         Time.timeScale = 0f;
+		AudioManager.PlayVictory();   // detiene la música y suena la victoria	
 
         // Mostrar interfaz
         panelVictoria.SetActive(true);
