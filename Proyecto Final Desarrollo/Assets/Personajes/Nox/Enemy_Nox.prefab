@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 8683527184931265995}
   - component: {fileID: 1722687240593951989}
   - component: {fileID: 7095084734200265913}
+  - component: {fileID: -4439306704630762514}
   - component: {fileID: 1499458057777527204}
   m_Layer: 0
   m_Name: Enemy_Nox
@@ -88,6 +89,9 @@ MonoBehaviour:
   useNavMesh: 1
   repathInterval: 0.25
   cornerReachDistance: 0.4
+  useSeparation: 1
+  separationRadius: 1.4
+  separationStrength: 1.2
   damage: 12
   hitDelay: 0.4
   hitRangeExtra: 0.5
@@ -118,6 +122,28 @@ MonoBehaviour:
   onDeath:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &-4439306704630762514
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 141944363696131104}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6415ab5fecffd4e6eb4f95bfa213e1c9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAudio
+  attackClip: {fileID: 0}
+  deathClip: {fileID: 0}
+  flyLoopClip: {fileID: 8300000, guid: fa1fcb4a53f93493ea437ba89f577ed3, type: 3}
+  attackVolume: 1
+  deathVolume: 1
+  flyVolume: 0.4
+  pitchVariation: 0.1
+  spatialBlend: 0.8
+  minDistance: 8
+  maxDistance: 12
 --- !u!114 &1499458057777527204
 MonoBehaviour:
   m_ObjectHideFlags: 0
