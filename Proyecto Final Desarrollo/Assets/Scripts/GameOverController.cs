@@ -54,6 +54,7 @@ public class GameOverController : MonoBehaviour
 
         // Detener la partida
         Time.timeScale = 0f;
+        AudioManager.PlayGameOver();  // detiene la música y suena el game over
 
         // Mostrar pantalla de derrota
         if (panelGameOver != null)

@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 6846415662839865234}
   - component: {fileID: 5621845554736427663}
   - component: {fileID: 5601585395554915095}
+  - component: {fileID: -3989618092482352439}
   - component: {fileID: 6140848467074412735}
   m_Layer: 0
   m_Name: Enemy_Goro
@@ -118,6 +119,28 @@ MonoBehaviour:
   onDeath:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &-3989618092482352439
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4660292915751153560}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2138f3404583c4c4ab990daeebc87808, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAudio
+  attackClip: {fileID: 8300000, guid: e84b244b7d5c342d4a3ef52c29dcded5, type: 3}
+  deathClip: {fileID: 8300000, guid: 86ff944419b5343588f47e3cfbedb4eb, type: 3}
+  flyLoopClip: {fileID: 0}
+  attackVolume: 1
+  deathVolume: 1
+  flyVolume: 0.4
+  pitchVariation: 0.1
+  spatialBlend: 0.75
+  minDistance: 8
+  maxDistance: 40
 --- !u!114 &6140848467074412735
 MonoBehaviour:
   m_ObjectHideFlags: 0

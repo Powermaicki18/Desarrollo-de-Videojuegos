@@ -45,6 +45,7 @@ public class EnemyController : MonoBehaviour
     CharacterController cc;
     Health health;
     Health targetHealth;
+    EnemyAudio enemyAudio;                  // sonidos del enemigo
     float verticalVel, lockUntil, nextAttack, hitAt, bobPhase, hoverY;
     bool hitPending, dead, hasHoverY;
     bool hasSpeed, hasAttack, hasDie;
@@ -62,6 +63,7 @@ public class EnemyController : MonoBehaviour
     {
         cc = GetComponent<CharacterController>();
         health = GetComponent<Health>();
+        enemyAudio = GetComponent<EnemyAudio>();
         path = new NavMeshPath();
         repathAt = Time.time + Random.value * repathInterval;
         bobPhase = Random.value * 6.28f;
@@ -88,6 +90,7 @@ public class EnemyController : MonoBehaviour
             dead = true;
             hitPending = false;
             if (!isFlying) cc.enabled = false;              // el volador sigue activo para caer al suelo
+            if (enemyAudio) enemyAudio.PlayDeath();         // sonido de muerte (corta el de vuelo)
             if (animator)
             {
                 if (hasSpeed) animator.SetFloat(SpeedHash, 0f);
@@ -130,6 +133,7 @@ public class EnemyController : MonoBehaviour
                         hitAt = Time.time + hitDelay;
                         hitPending = true;
                         if (animator && hasAttack) animator.SetTrigger(AttackHash);
+                        if (enemyAudio) enemyAudio.PlayAttack();   // sonido de ataque
                     }
                 }
                 else if (dist <= detectRange)

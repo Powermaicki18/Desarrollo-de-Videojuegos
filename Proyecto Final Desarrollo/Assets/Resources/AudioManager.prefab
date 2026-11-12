@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &5752699636295335849
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3880710931000119994}
+  - component: {fileID: 289809977667297341}
+  m_Layer: 0
+  m_Name: AudioManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3880710931000119994
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5752699636295335849}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 255.59125, y: 0.00001, z: 1672.3464}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &289809977667297341
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5752699636295335849}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 349282c20648e4644af4160c8f9d7b8e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AudioManager
+  sceneMusic:
+  - sceneName: MenuPrincipal
+    clip: {fileID: 8300000, guid: bd1e68aae95f74765a8d25aef81c96b0, type: 3}
+    volume: 1
+  - sceneName: PrimerMapa
+    clip: {fileID: 8300000, guid: f757041fc91df4810ae4accffe2e4dfe, type: 3}
+    volume: 1
+  - sceneName: SegundoMapa
+    clip: {fileID: 8300000, guid: 8f9404f613cb34683aff294fff2e3c61, type: 3}
+    volume: 1
+  - sceneName: ComicFinal
+    clip: {fileID: 8300000, guid: bd1e68aae95f74765a8d25aef81c96b0, type: 3}
+    volume: 1
+  buttonClip: {fileID: 8300000, guid: 324e49ecca2be45b08929613ad5cd7d4, type: 3}
+  victoryClip: {fileID: 8300000, guid: 06f42919d02654a038176fe322ef848a, type: 3}
+  gameOverClip: {fileID: 8300000, guid: b3a7e911a0a5348e98025deb194616fd, type: 3}
+  uiVolume: 1
+  musicSource: {fileID: 0}
+  sfxSource: {fileID: 0}

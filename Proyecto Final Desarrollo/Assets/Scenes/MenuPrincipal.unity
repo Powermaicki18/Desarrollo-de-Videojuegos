@@ -258,6 +258,7 @@ GameObject:
   - component: {fileID: 378144587}
   - component: {fileID: 378144586}
   - component: {fileID: 378144585}
+  - component: {fileID: 378144588}
   m_Layer: 5
   m_Name: BotonJugar
   m_TagString: Untagged
@@ -379,6 +380,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 378144583}
   m_CullTransparentMesh: 1
+--- !u!114 &378144588
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 378144583}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 415972e0564144c4799f24e89e173a5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ButtonSound
 --- !u!1 &961739749
 GameObject:
   m_ObjectHideFlags: 0
@@ -876,7 +889,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.392}
+  m_Color: {r: 0.8039216, g: 0.8039216, b: 0.8039216, a: 0.392}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1148,9 +1161,21 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1784482071}
     m_Modifications:
+    - target: {fileID: 357337109090432431, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
+      propertyPath: m_Type
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 357337109090432431, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
     - target: {fileID: 439127855886696825, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
       propertyPath: m_Name
       value: PanelComic
+      objectReference: {fileID: 0}
+    - target: {fileID: 439127855886696825, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4682187386310396542, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
       propertyPath: m_Pivot.x
@@ -1162,19 +1187,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4682187386310396542, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 1
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 4682187386310396542, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 1
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 4682187386310396542, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
       propertyPath: m_AnchorMin.x
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 4682187386310396542, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 4682187386310396542, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
       propertyPath: m_SizeDelta.x
@@ -1231,6 +1256,26 @@ PrefabInstance:
     - target: {fileID: 4682187386310396542, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6319487172648339533, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6319487172648339533, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6319487172648339533, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6319487172648339533, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6319487172648339533, guid: 8b478c4372098d84da3b5afd9cdb6b9c, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.9
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

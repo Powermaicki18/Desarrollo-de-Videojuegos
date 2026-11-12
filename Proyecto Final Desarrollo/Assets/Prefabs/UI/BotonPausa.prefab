@@ -149,6 +149,7 @@ GameObject:
   - component: {fileID: 5966525680832353891}
   - component: {fileID: 1426579747784494870}
   - component: {fileID: 6798375010170587819}
+  - component: {fileID: 3733811651197950426}
   m_Layer: 5
   m_Name: BotonPausa
   m_TagString: Untagged
@@ -270,3 +271,15 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!114 &3733811651197950426
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3381965241129887611}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 415972e0564144c4799f24e89e173a5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ButtonSound

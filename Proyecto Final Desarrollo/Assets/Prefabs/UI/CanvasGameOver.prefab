@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7202910574236878821}
   - component: {fileID: 7680332704252174573}
   - component: {fileID: 5617453549932066313}
+  - component: {fileID: 9163293965011958619}
   m_Layer: 5
   m_Name: BotonReiniciar
   m_TagString: Untagged
@@ -133,6 +134,18 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!114 &9163293965011958619
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2451667133235282371}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 415972e0564144c4799f24e89e173a5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ButtonSound
 --- !u!1 &3429875670283992560
 GameObject:
   m_ObjectHideFlags: 0
