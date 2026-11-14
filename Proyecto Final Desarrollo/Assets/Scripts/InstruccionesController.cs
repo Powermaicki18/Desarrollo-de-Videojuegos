@@ -11,8 +11,12 @@ public class InstruccionesController : MonoBehaviour, IPointerDownHandler
     [SerializeField] private GameObject panelInstrucciones;
     [SerializeField] private RectTransform imagenInstrucciones;
 
-    [Header("Tiempo de instrucciones")]
+    [Header("Como se cierran las instrucciones")]
+    [Tooltip("Si esta activo, se cierran solas despues del tiempo de espera. Apagado = solo con el boton.")]
+    [SerializeField] private bool cerrarPorTiempo = false;
     [SerializeField] private float tiempoEspera = 8f;
+    [Tooltip("Si esta activo, un toque en cualquier parte las cierra. Apagado = solo con el boton.")]
+    [SerializeField] private bool cerrarAlTocarPantalla = false;
 
     [Header("Animacion POP")]
     [SerializeField] private float duracionAnimacion = 0.5f;
@@ -47,7 +51,8 @@ public class InstruccionesController : MonoBehaviour, IPointerDownHandler
 
         // Iniciar animacion y temporizador
         StartCoroutine(AnimarEntrada());
-        StartCoroutine(TemporizadorInstrucciones());
+        if (cerrarPorTiempo)
+            StartCoroutine(TemporizadorInstrucciones());
     }
 
     private void CrearBotonSkip()
@@ -162,7 +167,8 @@ public class InstruccionesController : MonoBehaviour, IPointerDownHandler
     // Detectar clic del mouse o tap en Android
     public void OnPointerDown(PointerEventData eventData)
     {
-        ComenzarJuego();
+        if (cerrarAlTocarPantalla)
+            ComenzarJuego();
     }
 
     public void ComenzarJuego()

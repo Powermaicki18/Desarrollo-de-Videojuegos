@@ -115,6 +115,8 @@ MonoBehaviour:
   maxHealth: 40
   showDebugBar: 1
   barHeight: 2.5
+  postHitInvulnerability: 0
+  logDamage: 0
   hurtbox: {fileID: 0}
   onDamaged:
     m_PersistentCalls:
@@ -157,7 +159,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlogDropOnDeath
   pickupPrefab: {fileID: 1872060218704517516, guid: 340481d386446e24db0f38921f41a57a, type: 3}
-  dropChance: 0.214
+  dropChance: 0.5
   offset: {x: 0, y: 0.1, z: 0}
 --- !u!1001 &8022618452938248410
 PrefabInstance:

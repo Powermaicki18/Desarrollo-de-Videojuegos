@@ -1,0 +1,429 @@
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+// Hace MUY visible una base de cura: anillo pulsante en el suelo, onda que se expande, columna de luz,
+// icono "+" flotante, luz verde y una flecha en el borde de la pantalla cuando Tuko esta herido y la base
+// queda fuera de vista. Todo se crea por codigo (sin assets). Se agrega solo a cada PlogHealZone.
+[RequireComponent(typeof(PlogHealZone))]
+public class PlogHealBeacon : MonoBehaviour
+{
+    [Header("Colores")]
+    public Color readyColor = new Color(0.25f, 1f, 0.45f, 1f);
+    public Color cooldownColor = new Color(0.55f, 0.6f, 0.6f, 1f);
+
+    [Header("Tamano de los aros")]
+    [Tooltip("0 = usa el tamano del collider de la base (limitado por Radio Maximo). Pon aqui un numero (metros) para fijarlo a mano.")]
+    public float radioManual = 0f;
+    [Tooltip("Tope del radio automatico, para que un collider grande no haga aros enormes.")]
+    public float radioMaximo = 3f;
+    [Tooltip("Multiplica el tamano de todos los aros y efectos (1 = normal, 0.7 = 30 % mas pequenos).")]
+    public float escalaAros = 1f;
+
+    [Header("Efectos")]
+    [Tooltip("La base misma brilla (emision) y pulsa con el color de cura.")]
+    public bool brilloEnLaBase = true;
+    [Range(0f, 6f)] public float intensidadBrillo = 1.6f;
+    [Tooltip("Aro de luz extra, mas grueso y brillante, alrededor de la base.")]
+    public bool aroDeLuz = true;
+    public bool anillo = true;
+    public bool onda = true;
+    public bool columnaDeLuz = true;
+    [Tooltip("Flecha grande que rebota encima de la base apuntando hacia abajo.")]
+    public bool flechaRebotando = false;
+    [Tooltip("Destellos que suben desde la base.")]
+    public bool destellos = true;
+    public int cantidadDestellos = 16;
+    public float alturaDestellos = 3.5f;
+    public bool luz = true;
+    public float alturaSobreSuelo = 0.08f;
+    public float alturaColumna = 6f;
+    public float alturaIcono = 3.2f;
+    public float velocidadPulso = 2.2f;
+
+    [Header("Flecha en pantalla")]
+    public bool flechaSiEstaLejos = true;
+    [Range(0f, 1f)] public float flechaSiVidaMenorA = 0.75f;
+    public float margenFlecha = 90f;
+    public string textoFlecha = "CURA";
+    public Color colorFlecha = new Color(1f, 0.85f, 0.2f, 1f);
+    public Color colorTextoFlecha = Color.white;
+    public Color colorContornoTextoFlecha = new Color(0.1f, 0.05f, 0.02f, 1f);
+    [Range(0f, 1f)] public float grosorContornoTextoFlecha = 0.3f;
+    public TMP_FontAsset fuenteTextoFlecha;
+    public float tamanoTextoFlecha = 30f;
+    public float tamanoFlecha = 90f;
+
+    PlogHealZone zone;
+    Collider col;
+    Health playerHealth;
+    Transform player;
+    Camera cam;
+
+    SpriteRenderer ring, ripple, beam, icon, halo;
+    System.Collections.Generic.List<Material> matsBase = new System.Collections.Generic.List<Material>();
+    SpriteRenderer[] motes; float[] moteFase, moteX, moteZ, moteVel;
+    Vector3 centro;
+    Transform fxRoot;     // raiz con escala 1: asi los efectos no heredan la escala del estanque
+    Light glow;
+    float radius;
+
+    RectTransform arrowRoot, arrowImg;
+    Image arrowGraphic;
+    TextMeshProUGUI arrowLabel;
+    CanvasGroup arrowGroup;
+
+    void Start()
+    {
+        zone = GetComponent<PlogHealZone>();
+        col = GetComponent<Collider>();
+        var p = GameObject.FindGameObjectWithTag("Player");
+        if (p) { player = p.transform; playerHealth = p.GetComponent<Health>(); }
+
+        fxRoot = new GameObject("FX_BaseCura_" + name).transform;
+        Bounds b = col ? col.bounds : new Bounds(transform.position, Vector3.one * 3f);
+        float auto = Mathf.Max(1f, Mathf.Max(b.extents.x, b.extents.z));
+        radius = (radioManual > 0f ? radioManual : Mathf.Min(auto, radioMaximo)) * escalaAros;
+        Vector3 ground = new Vector3(b.center.x, (col ? b.min.y : transform.position.y) + alturaSobreSuelo, b.center.z);
+
+        if (anillo) ring = MakeSprite("Anillo", RingSprite(), ground, true, radius * 2.1f);
+        if (onda) ripple = MakeSprite("Onda", RingSprite(), ground + Vector3.up * 0.01f, true, radius * 2.1f);
+        if (columnaDeLuz) beam = MakeSprite("Columna", BeamSprite(), ground + Vector3.up * alturaColumna * 0.5f, false, 1f);
+        centro = ground;
+        if (brilloEnLaBase)
+        {
+            foreach (var mr in GetComponentsInChildren<MeshRenderer>())
+            {
+                foreach (var m in mr.materials)               // instancias propias, no tocan el asset
+                {
+                    if (!m.HasProperty("_EmissionColor")) continue;
+                    m.EnableKeyword("_EMISSION");
+                    m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+                    matsBase.Add(m);
+                }
+            }
+        }
+        if (aroDeLuz) halo = MakeSprite("AroLuz", RingSprite(), ground + Vector3.up * 0.02f, true, radius * 2.5f);
+        if (flechaRebotando) icon = MakeSprite("Flecha3D", DownArrowSprite(), ground + Vector3.up * alturaIcono, false, 1.8f);
+        if (destellos)
+        {
+            Sprite dot = DotSprite();
+            motes = new SpriteRenderer[cantidadDestellos];
+            moteFase = new float[cantidadDestellos]; moteX = new float[cantidadDestellos];
+            moteZ = new float[cantidadDestellos]; moteVel = new float[cantidadDestellos];
+            for (int i = 0; i < cantidadDestellos; i++)
+            {
+                motes[i] = MakeSprite("Destello", dot, ground, false, Random.Range(0.25f, 0.5f));
+                moteFase[i] = Random.value;
+                Vector2 r = Random.insideUnitCircle * radius * 0.85f;
+                moteX[i] = r.x; moteZ[i] = r.y;
+                moteVel[i] = Random.Range(0.25f, 0.5f);
+            }
+        }
+        if (luz)
+        {
+            var lg = new GameObject("LuzCura");
+            lg.transform.SetParent(fxRoot, true);
+            lg.transform.position = ground + Vector3.up * 1.5f;
+            glow = lg.AddComponent<Light>();
+            glow.type = LightType.Point;
+            glow.range = radius * 3.2f;
+            glow.intensity = 3f;
+        }
+        if (flechaSiEstaLejos) BuildArrow();
+    }
+
+    SpriteRenderer MakeSprite(string n, Sprite s, Vector3 pos, bool flat, float size)
+    {
+        var go = new GameObject(n);
+        go.transform.SetParent(fxRoot, true);
+        go.transform.position = pos;
+        if (flat) go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = s;
+        go.transform.localScale = Vector3.one * size;
+        if (n == "Columna") go.transform.localScale = new Vector3(radius * 0.9f, alturaColumna, 1f);
+        sr.sortingOrder = 5;
+        return sr;
+    }
+
+    static readonly System.Collections.Generic.List<PlogHealBeacon> todas = new System.Collections.Generic.List<PlogHealBeacon>();
+    bool enCooldownAhora;
+    GameObject arrowCanvasGo;
+
+    void OnEnable() { if (!todas.Contains(this)) todas.Add(this); }
+    void OnDisable() { todas.Remove(this); }
+
+    void OnDestroy()
+    {
+        todas.Remove(this);
+        if (fxRoot) Destroy(fxRoot.gameObject);
+        if (arrowCanvasGo) Destroy(arrowCanvasGo);
+    }
+
+    // solo la base lista mas cercana al jugador muestra flecha (evita 2-3 flechas a la vez)
+    bool EsLaMasCercana()
+    {
+        if (player == null) return true;
+        PlogHealBeacon best = null; float bd = float.MaxValue;
+        foreach (var b in todas)
+        {
+            if (b == null || b.enCooldownAhora) continue;
+            Vector3 d = b.transform.position - player.position; d.y = 0f;
+            if (d.sqrMagnitude < bd) { bd = d.sqrMagnitude; best = b; }
+        }
+        return best == null || best == this;
+    }
+
+    void LateUpdate()
+    {
+        if (cam == null) cam = Camera.main;
+        bool cd = zone != null && zone.OnCooldown;
+        Color baseC = cd ? cooldownColor : readyColor;
+        float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * velocidadPulso);
+        float k = cd ? 0.35f : 1f;
+
+        if (ring) { ring.color = Alpha(baseC, (0.55f + 0.4f * pulse) * k); ring.transform.localScale = Vector3.one * radius * 2.1f * (1f + 0.03f * pulse); }
+        if (ripple)
+        {
+            float t = (Time.time * 0.6f) % 1f;
+            ripple.transform.localScale = Vector3.one * radius * 2.1f * Mathf.Lerp(0.35f, 1.15f, t);
+            ripple.color = Alpha(baseC, (1f - t) * 0.8f * k);
+        }
+        if (beam) { beam.color = Alpha(baseC, (0.35f + 0.25f * pulse) * k); Face(beam.transform, true); }
+        if (icon)
+        {
+            icon.color = Alpha(baseC, cd ? 0.4f : 1f);
+            float bob = Mathf.Abs(Mathf.Sin(Time.time * 3.2f)) * 0.7f;    // rebote
+            var pos = icon.transform.position;
+            pos.x = centro.x; pos.z = centro.z;
+            pos.y = centro.y + alturaIcono + bob;
+            icon.transform.position = pos;
+            float s = 1.8f * (1f + 0.06f * pulse);
+            icon.transform.localScale = new Vector3(s, s, 1f);
+            Face(icon.transform, false);
+        }
+        if (motes != null)
+        {
+            for (int i = 0; i < motes.Length; i++)
+            {
+                float f = (Time.time * moteVel[i] * 0.4f + moteFase[i]) % 1f;
+                motes[i].transform.position = centro + new Vector3(moteX[i] + Mathf.Sin(Time.time * 1.5f + i) * 0.2f, 0.2f + f * alturaDestellos, moteZ[i]);
+                motes[i].color = Alpha(Color.Lerp(baseC, Color.white, 0.5f), Mathf.Sin(f * Mathf.PI) * (cd ? 0.2f : 0.9f));
+                Face(motes[i].transform, false);
+            }
+        }
+        if (matsBase.Count > 0)
+        {
+            Color em = baseC * (intensidadBrillo * (0.55f + 0.45f * pulse) * (cd ? 0.15f : 1f));
+            foreach (var m in matsBase) if (m) m.SetColor("_EmissionColor", em);
+        }
+        if (halo)
+        {
+            halo.color = Alpha(Color.Lerp(baseC, Color.white, 0.35f), (0.75f + 0.25f * pulse) * (cd ? 0.2f : 1f));
+            halo.transform.localScale = Vector3.one * radius * 2.5f * (1f + 0.04f * pulse);
+        }
+        if (glow) { glow.color = baseC; glow.intensity = cd ? 0.5f : 2.5f + 2f * pulse; }
+
+        enCooldownAhora = cd;
+        UpdateArrow(cd);
+    }
+
+    void Face(Transform t, bool keepUp)
+    {
+        if (cam == null) return;
+        Vector3 f = cam.transform.forward;
+        if (keepUp) f.y = 0f;
+        if (f.sqrMagnitude > 0.001f) t.rotation = Quaternion.LookRotation(f, Vector3.up);
+    }
+
+    static Color Alpha(Color c, float a) { c.a = Mathf.Clamp01(a); return c; }
+
+    // ---------------- FLECHA EN PANTALLA ----------------
+    void BuildArrow()
+    {
+        var cgo = new GameObject("HUD_FlechaCura");
+        var canvas = cgo.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 6;
+        var scaler = cgo.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.matchWidthOrHeight = 0.5f;
+        arrowCanvasGo = cgo;   // no se parenta a la base: heredaria su rotacion/escala y la flecha saldria girada
+
+        var root = new GameObject("Flecha", typeof(RectTransform));
+        root.transform.SetParent(cgo.transform, false);
+        arrowRoot = root.GetComponent<RectTransform>();
+        arrowRoot.sizeDelta = new Vector2(120, 120);
+        arrowGroup = root.AddComponent<CanvasGroup>();
+        arrowGroup.blocksRaycasts = false; arrowGroup.interactable = false; arrowGroup.alpha = 0f;
+
+        var img = new GameObject("Triangulo", typeof(RectTransform));
+        img.transform.SetParent(root.transform, false);
+        arrowImg = img.GetComponent<RectTransform>();
+        arrowImg.sizeDelta = new Vector2(tamanoFlecha, tamanoFlecha);
+        arrowGraphic = img.AddComponent<Image>();
+        arrowGraphic.sprite = ArrowSprite();
+        arrowGraphic.raycastTarget = false;
+
+        var lbl = new GameObject("Texto", typeof(RectTransform));
+        lbl.transform.SetParent(root.transform, false);
+        var lr = lbl.GetComponent<RectTransform>();
+        lr.sizeDelta = new Vector2(160, 40);
+        lr.anchoredPosition = new Vector2(0, -62);
+        arrowLabel = lbl.AddComponent<TextMeshProUGUI>();
+        if (fuenteTextoFlecha != null) arrowLabel.font = fuenteTextoFlecha;
+        arrowLabel.text = textoFlecha;
+        arrowLabel.alignment = TextAlignmentOptions.Center;
+        arrowLabel.fontSize = tamanoTextoFlecha;
+        arrowLabel.fontStyle = FontStyles.Bold;
+        arrowLabel.outlineWidth = grosorContornoTextoFlecha;
+        arrowLabel.outlineColor = colorContornoTextoFlecha;
+        arrowLabel.raycastTarget = false;
+    }
+
+    void UpdateArrow(bool cd)
+    {
+        if (arrowGroup == null) return;
+        bool show = false;
+        if (cam != null && player != null && playerHealth != null && !cd && !playerHealth.IsDead && Time.timeScale > 0f)
+        {
+            float frac = playerHealth.maxHealth > 0f ? playerHealth.CurrentHealth / playerHealth.maxHealth : 1f;
+            Vector3 vp = cam.WorldToViewportPoint(transform.position);
+            bool onScreen = vp.z > 0f && vp.x > 0.04f && vp.x < 0.96f && vp.y > 0.04f && vp.y < 0.96f;
+            show = frac < flechaSiVidaMenorA && !onScreen && EsLaMasCercana();
+            if (show)
+            {
+                // direccion en pantalla calculada desde el mundo (funciona aunque la base quede detras/fuera de camara)
+                Vector3 toT = transform.position - player.position; toT.y = 0f;
+                Vector3 cr = cam.transform.right; cr.y = 0f; cr.Normalize();
+                Vector3 cf = cam.transform.forward; cf.y = 0f;
+                if (cf.sqrMagnitude < 0.0001f) cf = cam.transform.up; cf.y = 0f; cf.Normalize();
+                Vector2 dir = new Vector2(Vector3.Dot(toT, cr), Vector3.Dot(toT, cf));
+                if (dir.sqrMagnitude < 0.0001f) dir = Vector2.up;
+                dir.Normalize();
+
+                float sw = Screen.width, sh = Screen.height;
+                Vector2 c = new Vector2(sw, sh) * 0.5f;
+                float mx = sw * 0.5f - margenFlecha, my = sh * 0.5f - margenFlecha;
+                float sx = Mathf.Abs(dir.x) > 0.0001f ? mx / Mathf.Abs(dir.x) : float.MaxValue;
+                float sy = Mathf.Abs(dir.y) > 0.0001f ? my / Mathf.Abs(dir.y) : float.MaxValue;
+                Vector2 screenPos = c + dir * Mathf.Min(sx, sy);
+
+                var cv = arrowRoot.GetComponentInParent<Canvas>();
+                float scale = cv.scaleFactor > 0f ? cv.scaleFactor : 1f;
+                arrowRoot.anchoredPosition = (screenPos - c) / scale;
+                arrowImg.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f);
+                float pulse = 1f + 0.12f * Mathf.Sin(Time.unscaledTime * 6f);
+                arrowRoot.localScale = Vector3.one * pulse;
+                arrowGraphic.color = colorFlecha;
+                arrowLabel.color = colorTextoFlecha;
+            }
+        }
+        arrowGroup.alpha = Mathf.MoveTowards(arrowGroup.alpha, show ? 1f : 0f, Time.unscaledDeltaTime * 4f);
+    }
+
+    // ---------------- SPRITES PROCEDURALES ----------------
+    static Sprite RingSprite()
+    {
+        const int s = 256;
+        var t = NewTex(s);
+        for (int y = 0; y < s; y++)
+            for (int x = 0; x < s; x++)
+            {
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(s / 2f, s / 2f)) / (s / 2f);
+                float a = 0f;
+                if (d <= 1f)
+                {
+                    float edge = Mathf.SmoothStep(0f, 1f, (d - 0.80f) / 0.06f) * (1f - Mathf.SmoothStep(0f, 1f, (d - 0.96f) / 0.04f));
+                    float fill = 0.14f * (1f - d);
+                    a = Mathf.Max(edge, fill);
+                }
+                t.SetPixel(x, y, new Color(1, 1, 1, a));
+            }
+        return Finish(t, s);
+    }
+
+    static Sprite BeamSprite()
+    {
+        const int w = 64, h = 256;
+        var t = new Texture2D(w, h, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float fx = 1f - Mathf.Abs((x / (w - 1f)) * 2f - 1f);
+                float fy = 1f - y / (h - 1f);
+                t.SetPixel(x, y, new Color(1, 1, 1, Mathf.Pow(fx, 1.6f) * Mathf.Pow(fy, 1.2f)));
+            }
+        t.Apply();
+        return Sprite.Create(t, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), w);
+    }
+
+    // Flecha gruesa apuntando hacia abajo, con borde oscuro
+    static Sprite DownArrowSprite()
+    {
+        const int sz = 160;
+        var t = NewTex(sz);
+        for (int y = 0; y < sz; y++)
+            for (int x = 0; x < sz; x++)
+            {
+                Color c = new Color(0, 0, 0, 0);
+                if (InArrow(x, y, sz, 0)) c = Color.white;
+                else if (InArrow(x, y, sz, 7)) c = new Color(0.05f, 0.03f, 0.02f, 1f);
+                t.SetPixel(x, y, c);
+            }
+        return Finish(t, sz);
+    }
+
+    static bool InArrow(int x, int y, int sz, int grow)
+    {
+        // coordenadas 0..1, y=0 abajo (punta). Se prueba el punto desplazado en 8 direcciones para el borde.
+        if (grow == 0) return ArrowShape(x / (float)sz, y / (float)sz);
+        for (int i = 0; i < 8; i++)
+        {
+            float a = i * Mathf.PI / 4f;
+            if (ArrowShape((x + Mathf.Cos(a) * grow) / sz, (y + Mathf.Sin(a) * grow) / sz)) return true;
+        }
+        return false;
+    }
+
+    static bool ArrowShape(float u, float v)
+    {
+        float cx = Mathf.Abs(u - 0.5f);
+        if (v >= 0.12f && v <= 0.52f) return cx < (v - 0.12f) / 0.40f * 0.30f;   // cabeza (ancha arriba, punta abajo)
+        if (v > 0.52f && v <= 0.88f) return cx < 0.13f;                                         // cuerpo
+        return false;
+    }
+
+    static Sprite DotSprite()
+    {
+        const int s = 64;
+        var t = NewTex(s);
+        for (int y = 0; y < s; y++)
+            for (int x = 0; x < s; x++)
+            {
+                float d = Vector2.Distance(new Vector2(x, y), new Vector2(s / 2f, s / 2f)) / (s / 2f);
+                t.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01(1f - d) * Mathf.Clamp01(1f - d) * 1.6f));
+            }
+        return Finish(t, s);
+    }
+
+    static Sprite ArrowSprite()
+    {
+        const int s = 128;
+        var t = NewTex(s);
+        for (int y = 0; y < s; y++)
+            for (int x = 0; x < s; x++)
+            {
+                float u = (x - s / 2f) / (s / 2f), v = y / (float)s;      // punta arriba
+                float half = (1f - v) * 0.9f * 0.5f + 0.0f;
+                bool inside = v > 0.12f && v < 0.95f && Mathf.Abs(u) < (0.95f - v) * 0.95f;
+                t.SetPixel(x, y, inside ? Color.white : new Color(1, 1, 1, 0));
+            }
+        return Finish(t, s);
+    }
+
+    static Texture2D NewTex(int s) { return new Texture2D(s, s, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear }; }
+    static Sprite Finish(Texture2D t, int s) { t.Apply(); return Sprite.Create(t, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), s); }
+}

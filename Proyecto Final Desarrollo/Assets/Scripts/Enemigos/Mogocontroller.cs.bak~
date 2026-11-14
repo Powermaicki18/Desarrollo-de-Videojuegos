@@ -1,0 +1,311 @@
+using System.Collections;
+using UnityEngine;
+using UnityEngine.AI;
+
+// Mogo: enemigo de emboscada. Vive bajo tierra, marca en el suelo donde va a salir,
+// emerge cerca de Tuko, golpea, queda expuesto un momento y vuelve a enterrarse.
+// Solo se le puede hacer dano mientras esta fuera de la tierra.
+public class MogoController : MonoBehaviour
+{
+    [Header("Referencias")]
+    public Animator animator;
+    public Transform target;
+    [Tooltip("Hijo con el modelo. Si lo dejas vacio se hunde todo el objeto.")]
+    public Transform visual;
+
+    [Header("Ciclo")]
+    public float detectRange = 16f;                  // solo ataca si Tuko esta a esta distancia
+    public float firstAppearDelay = 1.5f;
+    public Vector2 hiddenTimeRange = new Vector2(1.5f, 3f);  // tiempo bajo tierra entre apariciones
+    public float telegraphTime = 0.9f;               // aviso en el suelo antes de salir
+    public float emergeTime = 0.8f;                  // duracion de la animacion de salir
+    public int attacksPerEmerge = 1;
+    public float attackLockTime = 1.0f;              // duracion de la animacion de golpe
+    public float exposedTime = 2.0f;                 // tiempo vulnerable despues de atacar
+    public float burrowTime = 0.5f;                  // tiempo que tarda en hundirse
+    public float sinkDistance = 1.5f;                // cuanto se hunde
+
+    [Header("Aparicion")]
+    public float spawnDistance = 1.8f;               // a que distancia de Tuko aparece
+    public float navSampleRadius = 2f;
+    public int spawnTries = 8;
+    public float markerRadius = 0.9f;
+    public GameObject markerPrefab;                  // opcional: tu propio aviso (monticulo, particulas)
+    public Color markerColor = new Color(0.35f, 0.2f, 0.1f, 1f);
+
+    [Header("Ataque")]
+    public float damage = 15f;
+    public float attackRange = 1.8f;
+    public float hitDelay = 0.45f;                   // segundos desde que empieza el golpe hasta que pega
+    public float hitRangeExtra = 0.5f;
+    public float turnSpeed = 720f;
+
+    [Header("Muerte")]
+    public float deathWait = 0.6f;                   // tiempo que se ve antes de hundirse
+    public float deathSinkTime = 0.8f;
+
+    Health health, targetHealth;
+    Collider[] cols;
+    Renderer[] rends;
+    Vector3 visualBaseLocalPos;
+    GameObject marker;
+    bool dead, warnedNoNav;
+    bool hasEmerge, hasAttack, hasDie;
+
+    static readonly int EmergeHash = Animator.StringToHash("Emerge");
+    static readonly int AttackHash = Animator.StringToHash("Attack");
+    static readonly int DieHash = Animator.StringToHash("Die");
+
+    void Awake()
+    {
+        health = GetComponent<Health>();
+        if (!animator) animator = GetComponentInChildren<Animator>();
+        if (animator)
+        {
+            animator.applyRootMotion = false;
+            foreach (var p in animator.parameters)
+            {
+                if (p.nameHash == EmergeHash) hasEmerge = true;
+                if (p.nameHash == AttackHash) hasAttack = true;
+                if (p.nameHash == DieHash) hasDie = true;
+            }
+            if (!visual && animator.transform != transform) visual = animator.transform;
+        }
+        if (visual) visualBaseLocalPos = visual.localPosition;
+
+        cols = GetComponentsInChildren<Collider>(true);
+        rends = GetComponentsInChildren<Renderer>(true);
+        SetHidden(true);                              // empieza bajo tierra
+    }
+
+    void Start()
+    {
+        StartCoroutine(Cycle());
+    }
+
+    void Update()
+    {
+        if (dead) return;
+        if (health && health.IsDead) Die();
+    }
+
+    // ---------------- CICLO PRINCIPAL ----------------
+    IEnumerator Cycle()
+    {
+        yield return new WaitForSeconds(firstAppearDelay);
+
+        while (!dead)
+        {
+            FindTarget();
+
+            if (!TargetAlive() || FlatDistance() > detectRange)
+            {
+                yield return new WaitForSeconds(0.3f);
+                continue;
+            }
+
+            // 1) Bajo tierra, esperando
+            yield return new WaitForSeconds(Random.Range(hiddenTimeRange.x, hiddenTimeRange.y));
+            if (dead) yield break;
+            if (!TargetAlive()) continue;
+
+            // 2) Elige donde salir y avisa en el suelo
+            if (!PickSpawnPoint(out Vector3 p))
+            {
+                yield return new WaitForSeconds(0.5f);
+                continue;
+            }
+            transform.position = p;
+            marker = SpawnMarker(p);
+            float t = 0f;
+            while (t < telegraphTime)
+            {
+                t += Time.deltaTime;
+                if (marker)
+                {
+                    float k = 0.5f + 0.5f * Mathf.Clamp01(t / telegraphTime);
+                    marker.transform.localScale = new Vector3(markerRadius * 2f * k, 0.02f, markerRadius * 2f * k);
+                }
+                yield return null;
+            }
+            if (marker) Destroy(marker);
+
+            // 3) Sale de la tierra
+            if (visual) visual.localPosition = visualBaseLocalPos;
+            FaceTarget(true);
+            SetHidden(false);
+            if (animator && hasEmerge) animator.SetTrigger(EmergeHash);
+            yield return new WaitForSeconds(emergeTime);
+
+            // 4) Golpea
+            for (int i = 0; i < attacksPerEmerge; i++)
+            {
+                if (!TargetAlive()) break;
+                FaceTarget(true);
+                if (animator && hasAttack) animator.SetTrigger(AttackHash);
+                yield return new WaitForSeconds(hitDelay);
+                DealDamage();
+                yield return new WaitForSeconds(Mathf.Max(0f, attackLockTime - hitDelay));
+            }
+
+            // 5) Expuesto: aqui es cuando Tuko puede pegarle
+            yield return new WaitForSeconds(exposedTime);
+
+            // 6) Se entierra
+            yield return StartCoroutine(Burrow());
+            SetHidden(true);
+        }
+    }
+
+    IEnumerator Burrow()
+    {
+        SetColliders(false);                          // ya no se le puede golpear
+        Transform t = visual ? visual : transform;
+        Vector3 start = t.position;
+        float e = 0f;
+        while (e < burrowTime)
+        {
+            e += Time.deltaTime;
+            t.position = start + Vector3.down * sinkDistance * Mathf.Clamp01(e / Mathf.Max(0.01f, burrowTime));
+            yield return null;
+        }
+    }
+
+    // ---------------- ATAQUE ----------------
+    public void DealDamage()
+    {
+        if (dead || !target || targetHealth == null || targetHealth.IsDead) return;
+        if (EdgeDistance() <= attackRange + hitRangeExtra)
+            targetHealth.TakeDamage(damage);
+    }
+
+    // ---------------- MUERTE ----------------
+    void Die()
+    {
+        dead = true;
+        StopAllCoroutines();
+        if (marker) Destroy(marker);
+        SetColliders(false);
+        SetRenderers(true);
+        if (animator && hasDie) animator.SetTrigger(DieHash);
+        StartCoroutine(DeathRoutine());
+    }
+
+    IEnumerator DeathRoutine()
+    {
+        yield return new WaitForSeconds(deathWait);
+        Transform t = visual ? visual : transform;
+        Vector3 start = t.position;
+        float e = 0f;
+        while (e < deathSinkTime)
+        {
+            e += Time.deltaTime;
+            t.position = start + Vector3.down * sinkDistance * Mathf.Clamp01(e / Mathf.Max(0.01f, deathSinkTime));
+            yield return null;
+        }
+        Destroy(gameObject);
+    }
+
+    // ---------------- AYUDAS ----------------
+    void SetHidden(bool hidden)
+    {
+        SetColliders(!hidden);
+        SetRenderers(!hidden);
+    }
+
+    void SetColliders(bool on)
+    {
+        foreach (var c in cols) if (c) c.enabled = on;
+    }
+
+    void SetRenderers(bool on)
+    {
+        foreach (var r in rends) if (r) r.enabled = on;
+    }
+
+    void FindTarget()
+    {
+        if (!target)
+        {
+            var p = GameObject.FindGameObjectWithTag("Player");
+            if (p) target = p.transform;
+        }
+        if (target && !targetHealth) targetHealth = target.GetComponent<Health>();
+    }
+
+    bool TargetAlive()
+    {
+        return target && (targetHealth == null || !targetHealth.IsDead);
+    }
+
+    float FlatDistance()
+    {
+        Vector3 d = target.position - transform.position;
+        d.y = 0;
+        return d.magnitude;
+    }
+
+    float EdgeDistance()
+    {
+        Vector3 edge = targetHealth ? targetHealth.ClosestPoint(transform.position) : target.position;
+        edge.y = transform.position.y;
+        return (edge - transform.position).magnitude;
+    }
+
+    void FaceTarget(bool instant)
+    {
+        if (!target) return;
+        Vector3 d = target.position - transform.position;
+        d.y = 0;
+        if (d.sqrMagnitude < 0.001f) return;
+        Quaternion q = Quaternion.LookRotation(d.normalized, Vector3.up);
+        transform.rotation = instant ? q : Quaternion.RotateTowards(transform.rotation, q, turnSpeed * Time.deltaTime);
+    }
+
+    // Busca un punto sobre el NavMesh alrededor de Tuko (asi nunca sale dentro del abismo ni de una pared)
+    bool PickSpawnPoint(out Vector3 point)
+    {
+        for (int i = 0; i < spawnTries; i++)
+        {
+            float a = Random.value * Mathf.PI * 2f;
+            Vector3 cand = target.position + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * spawnDistance;
+            if (NavMesh.SamplePosition(cand, out NavMeshHit hit, navSampleRadius, NavMesh.AllAreas))
+            {
+                Vector3 d = hit.position - target.position;
+                d.y = 0;
+                if (d.magnitude <= spawnDistance + navSampleRadius)
+                {
+                    point = hit.position;
+                    return true;
+                }
+            }
+        }
+        if (!warnedNoNav)
+        {
+            warnedNoNav = true;
+            Debug.LogWarning("[MogoController] No encontre NavMesh cerca de Tuko. Hornea el NavMesh de esta escena.", this);
+        }
+        point = Vector3.zero;
+        return false;
+    }
+
+    GameObject SpawnMarker(Vector3 p)
+    {
+        if (markerPrefab) return Instantiate(markerPrefab, p, Quaternion.identity);
+
+        GameObject m = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        Collider c = m.GetComponent<Collider>();
+        if (c) Destroy(c);
+        m.transform.position = p + Vector3.up * 0.03f;
+        m.transform.localScale = new Vector3(markerRadius, 0.02f, markerRadius);
+        var r = m.GetComponent<Renderer>();
+        r.material.color = markerColor;
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        return m;
+    }
+
+    void OnDestroy()
+    {
+        if (marker) Destroy(marker);
+    }
+}

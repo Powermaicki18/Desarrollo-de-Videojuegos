@@ -15,6 +15,18 @@ public class Health : MonoBehaviour
     [Header("Barra de vida")]
     public bool showDebugBar = true;
     public float barHeight = 2.4f;
+    [Tooltip("Color de la barra del jugador (el que tenga el tag Player).")]
+    public Color playerBarColor = new Color(0.2f, 0.9f, 0.3f, 1f);
+    [Tooltip("Color de la barra de los enemigos y demas.")]
+    public Color enemyBarColor = Color.red;
+    [Tooltip("Color mientras el personaje es invulnerable.")]
+    public Color invulnerableBarColor = Color.cyan;
+
+    [Header("Dano recibido")]
+    [Tooltip("Segundos de invulnerabilidad despues de recibir un golpe (0 = sin invulnerabilidad). Para el jugador prueba 0.4.")]
+    public float postHitInvulnerability = 0f;
+    [Tooltip("Escribe en la Consola cada golpe: quien lo recibe, cuanto dano y cuanta vida queda.")]
+    public bool logDamage = false;
 
     [Header("Zona de impacto (opcional)")]
     public Collider hurtbox;
@@ -84,10 +96,24 @@ public class Health : MonoBehaviour
         if (IsDead || IsInvulnerable)
             return;
 
+        float before = CurrentHealth;
+
         CurrentHealth = Mathf.Max(
             0f,
             CurrentHealth - amount
         );
+
+        if (logDamage)
+        {
+            Debug.Log(
+                "[Health] " + name + " recibio " + amount +
+                " de dano: " + before + " -> " + CurrentHealth +
+                " / " + maxHealth
+            );
+        }
+
+        if (postHitInvulnerability > 0f && !IsDead)
+            GrantInvulnerability(postHitInvulnerability);
 
         onDamaged?.Invoke();
 
@@ -168,11 +194,11 @@ public class Health : MonoBehaviour
             Texture2D.whiteTexture
         );
 
-        // Rojo = vida normal.
+        // Verde = jugador, rojo = enemigos.
         // Cian = personaje invulnerable.
         GUI.color = IsInvulnerable
-            ? Color.cyan
-            : Color.red;
+            ? invulnerableBarColor
+            : (CompareTag("Player") ? playerBarColor : enemyBarColor);
 
         // Calcular porcentaje de vida.
         float porcentajeVida = maxHealth > 0f

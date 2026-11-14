@@ -15,7 +15,21 @@ public class GameOverController : MonoBehaviour
     [SerializeField] private float escalaInicial = 0.75f;
     [SerializeField] private float escalaRebote = 1.05f;
 
+    [Header("Muerte de Tuko")]
+    [Tooltip("Animator de Tuko. Vacio = lo busca en el jugador.")]
+    [SerializeField] private Animator animatorJugador;
+    [Tooltip("Si esta activo, espera lo que dure el clip de muerte. Si no, usa Espera Fija.")]
+    [SerializeField] private bool usarDuracionDelClip = true;
+    [SerializeField] private string nombreClipMuerte = "death";
+    [SerializeField] private float esperaFija = 2.5f;
+    [Tooltip("Segundos extra despues de que termina la animacion, antes de mostrar el cartel.")]
+    [SerializeField] private float pausaExtra = 0.8f;
+
     private bool gameOverActivo = false;
+    private bool muerteEnCurso = false;
+    private static readonly int DieHash = Animator.StringToHash("Die");
+    private static readonly int AttackHash = Animator.StringToHash("Attack");
+    private static readonly int SuperHash = Animator.StringToHash("Super");
     private Vector3 escalaOriginal;
 
     private void Awake()
@@ -30,19 +44,77 @@ public class GameOverController : MonoBehaviour
     private void OnEnable()
     {
         if (vidaJugador != null)
-            vidaJugador.onDeath.AddListener(MostrarGameOver);
+            vidaJugador.onDeath.AddListener(AlMorirJugador);
     }
 
     private void Start()
     {
         if (vidaJugador != null && vidaJugador.IsDead)
-            MostrarGameOver();
+            AlMorirJugador();
     }
 
     private void OnDisable()
     {
         if (vidaJugador != null)
-            vidaJugador.onDeath.RemoveListener(MostrarGameOver);
+            vidaJugador.onDeath.RemoveListener(AlMorirJugador);
+    }
+
+    // Tuko murio: reproduce la animacion de muerte y, pasados unos segundos, muestra el cartel
+    public void AlMorirJugador()
+    {
+        if (muerteEnCurso || gameOverActivo)
+            return;
+
+        muerteEnCurso = true;
+        StartCoroutine(SecuenciaMuerte());
+    }
+
+    private IEnumerator SecuenciaMuerte()
+    {
+        Animator anim = animatorJugador;
+        if (anim == null && vidaJugador != null)
+            anim = vidaJugador.GetComponentInChildren<Animator>();
+
+        float espera = 0f;
+        bool reprodujo = false;
+
+        if (anim != null)
+        {
+            bool tieneDie = false;
+            foreach (var p in anim.parameters)
+                if (p.nameHash == DieHash) { tieneDie = true; break; }
+
+            if (tieneDie)
+            {
+                anim.speed = 1f;
+                anim.ResetTrigger(AttackHash);
+                anim.ResetTrigger(SuperHash);
+                anim.SetTrigger(DieHash);
+                reprodujo = true;
+
+                espera = esperaFija;
+                if (usarDuracionDelClip && anim.runtimeAnimatorController != null)
+                {
+                    foreach (var c in anim.runtimeAnimatorController.animationClips)
+                    {
+                        if (c != null && c.name.ToLower().Contains(nombreClipMuerte.ToLower()))
+                        {
+                            espera = c.length;
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[GameOverController] El Animator de Tuko no tiene el parametro 'Die'.");
+            }
+        }
+
+        if (reprodujo)
+            yield return new WaitForSecondsRealtime(espera + pausaExtra);
+
+        MostrarGameOver();
     }
 
     public void MostrarGameOver()

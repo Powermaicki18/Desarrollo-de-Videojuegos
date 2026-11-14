@@ -19,7 +19,24 @@ public class PlogHealZone : MonoBehaviour
 
     void Reset() { var c = GetComponent<Collider>(); if (c) c.isTrigger = true; }
 
-    void Awake() { current = reserve; }
+    void Awake()
+    {
+        current = reserve;
+        if (GetComponent<PlogHealBeacon>() == null)
+        {
+            // efectos llamativos automaticos; copian el estilo (colores de flecha/texto, etc.) de una base ya configurada
+            PlogHealBeacon plantilla = null;
+            foreach (var o in UnityEngine.Object.FindObjectsByType<PlogHealBeacon>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (o != null) { plantilla = o; break; }
+            var nuevo = gameObject.AddComponent<PlogHealBeacon>();
+            if (plantilla != null)
+            {
+                float rm = nuevo.radioManual, rx = nuevo.radioMaximo, ea = nuevo.escalaAros;
+                JsonUtility.FromJsonOverwrite(JsonUtility.ToJson(plantilla), nuevo);
+                nuevo.radioManual = rm; nuevo.radioMaximo = rx; nuevo.escalaAros = ea;
+            }
+        }
+    }
 
     void Update()
     {

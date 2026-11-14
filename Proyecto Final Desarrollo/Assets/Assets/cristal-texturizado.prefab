@@ -121,8 +121,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c251646057eb87948a6a43a633a99c0d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlogHealPickup
-  healAmount: 13
-  lifetime: 12
+  healAmount: 10
+  lifetime: 15
   pickupRadius: 1.6
   maxHeightDiff: 3
   magnetRadius: 2

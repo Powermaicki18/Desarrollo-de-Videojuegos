@@ -1,0 +1,106 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &4171938989831324843
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.063033
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.063033
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.063033
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 6.2034626
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.37
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 7.6017613
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.00000008146034
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: b1b2c3d4e5f60718293a4b5c6d7e8f12, type: 2}
+    - target: {fileID: 919132149155446097, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      propertyPath: m_Name
+      value: Totem_Tierra
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: -4502017833361035862}
+  m_SourcePrefab: {fileID: 100100000, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+--- !u!1 &3829429372720429562 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: c40e7a5a4acdda044bb530162470b672, type: 3}
+  m_PrefabInstance: {fileID: 4171938989831324843}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &-4502017833361035862
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3829429372720429562}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c45838ff823429439aa4f2b2877dd19, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TotemRecogible
+  victoria: {fileID: 0}
+  jugador: {fileID: 5100126165131509895, guid: 7693730df9c0b4c4e969891d74047a3d, type: 3}
+  radioRecoger: 0.9
+  velocidadGiro: 60
+  alturaFlote: 0.15
+  velocidadFlote: 2
+  retardoRecoger: 1
+  alturaSalto: 2.2
+  tiempoSalto: 0.55
+  tiempoAbsorcion: 0.8
+  giroRapido: 900

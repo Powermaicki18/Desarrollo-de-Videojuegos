@@ -42,6 +42,23 @@ public class PlogPaletteSetup : AssetPostprocessor
 
     void OnPostprocessModel(GameObject go)
     {
+        // Los totems traen su propio material (mismo nombre, en su carpeta)
+        if (assetPath.Contains("/Totems/"))
+        {
+            string own = assetPath.Substring(0, assetPath.LastIndexOf('.')) + ".mat";
+            var ownMat = AssetDatabase.LoadAssetAtPath<Material>(own);
+            if (ownMat != null)
+            {
+                foreach (var r in go.GetComponentsInChildren<Renderer>())
+                {
+                    var a = new Material[r.sharedMaterials.Length];
+                    for (int i = 0; i < a.Length; i++) a[i] = ownMat;
+                    r.sharedMaterials = a;
+                }
+            }
+            return;
+        }
+
         var mat = AssetDatabase.LoadAssetAtPath<Material>(MatPath);
         if (mat == null) return;
         foreach (var r in go.GetComponentsInChildren<Renderer>())

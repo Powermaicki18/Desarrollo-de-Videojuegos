@@ -115,6 +115,11 @@ MonoBehaviour:
   maxHealth: 60
   showDebugBar: 1
   barHeight: 1.2
+  playerBarColor: {r: 0.2, g: 0.9, b: 0.3, a: 1}
+  enemyBarColor: {r: 1, g: 0, b: 0, a: 1}
+  invulnerableBarColor: {r: 0, g: 1, b: 1, a: 1}
+  postHitInvulnerability: 0
+  logDamage: 0
   hurtbox: {fileID: 0}
   onDamaged:
     m_PersistentCalls:
@@ -157,7 +162,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlogDropOnDeath
   pickupPrefab: {fileID: 1872060218704517516, guid: 340481d386446e24db0f38921f41a57a, type: 3}
-  dropChance: 0.224
+  dropChance: 0.5
   offset: {x: 0, y: 0.6, z: 0}
 --- !u!1001 &7268276367684189018
 PrefabInstance:

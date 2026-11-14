@@ -54,7 +54,8 @@ public class PausaController : MonoBehaviour
         // No abrir pausa durante las instrucciones
         if (Time.timeScale == 0f)
             return;
-        OcultarBarrasVida();
+        // (Las barras de vida se dibujan con OnGUI y Health ya las oculta con timeScale 0,
+        //  asi que no hace falta buscarlas en toda la escena.)
 
         estaPausado = true;
         Time.timeScale = 0f;
@@ -79,7 +80,6 @@ public class PausaController : MonoBehaviour
     {
         if (!estaPausado)
             return;
-        RestaurarBarrasVida();
 
         if (animacionActual != null)
         {

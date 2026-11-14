@@ -23,7 +23,11 @@ public class CameraFollow : MonoBehaviour
     Vector3 focus, vel;
     Camera cam;
 
-    void Awake() { cam = GetComponent<Camera>(); }
+    void Awake()
+    {
+        cam = GetComponent<Camera>();
+        if (GetComponent<CameraOclusion>() == null) gameObject.AddComponent<CameraOclusion>();   // objetos que tapan -> transparentes
+    }
 
     void Start()
     {
