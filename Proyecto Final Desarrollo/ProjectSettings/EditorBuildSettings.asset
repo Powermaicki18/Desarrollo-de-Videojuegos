@@ -17,6 +17,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/ComicFinal.unity
     guid: 55b8e8b910e51664b84832405a73676b
+  - enabled: 1
+    path: Assets/Scenes/CinematicaIntro.unity
+    guid: 09acdd6100cb54d4aba274982d8fe2d8
+  - enabled: 1
+    path: Assets/Scenes/CinematicaFinal.unity
+    guid: 80aa5c0ebeaf0454ab13e9b68704f0f2
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

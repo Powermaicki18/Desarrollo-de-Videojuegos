@@ -1,0 +1,361 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+
+// Cinemática del intro de Plog Origins. Cada TOMA tiene marcadores de cámara (inicio/fin), un texto,
+// y actores que se mueven entre dos marcadores. Mueve los marcadores en la escena para cambiar las tomas.
+public class CinematicaIntroController : MonoBehaviour
+{
+    [Serializable]
+    public class MovimientoActor
+    {
+        public Transform actor;
+        public Transform desde;
+        public Transform hasta;
+        [Tooltip("Nombre del estado del Animator a reproducir (opcional)")]
+        public string animacion;
+        [Tooltip("Repetir la animación cuando termina (caminar/correr). Apágalo para sorpresa/mirar: se queda en la última pose.")]
+        public bool repetir = true;
+        public AnimationCurve curva = AnimationCurve.Linear(0, 0, 1, 1);
+    }
+
+    [Serializable]
+    public class Toma
+    {
+        public string nombre = "Toma";
+        public float duracion = 5f;
+
+        [Header("Cámara")]
+        public Transform camaraInicio;
+        public Transform camaraFin;
+        [Tooltip("0 = no cambiar el campo de visión")] public float fovInicio = 0f;
+        public float fovFin = 0f;
+        public AnimationCurve curvaCamara = AnimationCurve.EaseInOut(0, 0, 1, 1);
+
+        [Tooltip("Si no es nulo, la cámara siempre mira a este objeto (útil para seguir a Tuko)")]
+        public Transform enfocar;
+        public float alturaEnfoque = 1.1f;
+
+        [Header("Voz (narración)")]
+        public AudioClip voz;
+        [Tooltip("Segundos antes de que empiece la voz")] public float retrasoVoz = 0.5f;
+
+        [Header("Texto (solo se ve si 'Mostrar Subtitulos' está activo, o si es título)")]
+        [TextArea] public string texto;
+        [Tooltip("Texto grande y centrado (título)")] public bool esTitulo;
+
+        [Header("Actores")]
+        public List<MovimientoActor> actores = new List<MovimientoActor>();
+
+        [Header("Luz (0 = día, 1 = noche, -1 = no cambiar)")]
+        public float nocheInicio = -1f;
+        public float nocheFin = -1f;
+
+        [Header("Transiciones")]
+        public bool entraDesdeNegro = false;
+        public float duracionEntrada = 0.5f;
+        public bool destelloAlFinal = false;
+        public bool salidaANegro = false;
+
+        [Header("Objetos")]
+        public GameObject[] activarAlInicio;
+        public GameObject[] desactivarAlInicio;
+        public GameObject[] activarAlFinal;
+        public GameObject[] desactivarAlFinal;
+    }
+
+    [Header("Referencias")]
+    public Camera camara;
+    public Light luzDireccional;
+    public TMP_FontAsset fuente;
+
+    [Header("Tomas (en orden)")]
+    public List<Toma> tomas = new List<Toma>();
+
+    [Header("Objetos que giran siempre (tótems)")]
+    public Transform[] girar;
+    public float velocidadGiro = 40f;
+
+    [Header("Final")]
+    public string siguienteEscena = "PrimerMapa";
+    public float fadeInicial = 1f;
+    public float fadeFinal = 1f;
+
+    [Header("Voz y cámara")]
+    [Tooltip("Muestra el texto de cada toma junto a la voz")] public bool mostrarSubtitulos = true;
+    [Range(0f, 1f)] public float volumenVoz = 1f;
+    [Tooltip("Campo de visión por defecto (la cámara del juego trae 30, muy cerrado para una cinemática)")]
+    public float fovPorDefecto = 55f;
+
+    [Header("Estilo")]
+    public Color colorNoche = new Color(0.35f, 0.42f, 0.8f, 1f);
+    [Range(0f, 1f)] public float intensidadLuzNoche = 0.35f;
+    [Range(0f, 1f)] public float ambienteNoche = 0.35f;
+    [Range(0f, 0.3f)] public float alturaBarras = 0.11f;
+    public float tamanoTexto = 54f;
+    public float tamanoTitulo = 120f;
+    public string textoSaltar = "SALTAR  >>";
+    public Key teclaSaltar = Key.Escape;
+
+    Image fade, flash, barraArriba, barraAbajo;
+    TextMeshProUGUI subtitulo;
+    CanvasGroup subGrupo;
+    bool saltar;
+    AudioSource audioVoz;
+    float nocheActual;
+    Color luzDia; float intDia; float ambDia;
+
+    void Start()
+    {
+        if (camara == null) camara = Camera.main;
+        if (camara != null) { camara.orthographic = false; camara.fieldOfView = fovPorDefecto; camara.nearClipPlane = 0.1f; camara.farClipPlane = 500f; }
+        audioVoz = gameObject.AddComponent<AudioSource>();
+        audioVoz.playOnAwake = false; audioVoz.spatialBlend = 0f; audioVoz.volume = volumenVoz;
+        if (luzDireccional != null) { luzDia = luzDireccional.color; intDia = luzDireccional.intensity; }
+        ambDia = RenderSettings.ambientIntensity;
+        ConstruirUI();
+        StartCoroutine(Reproducir());
+    }
+
+    void Update()
+    {
+        foreach (var t in girar) if (t != null) t.Rotate(0f, velocidadGiro * Time.deltaTime, 0f, Space.World);
+        var kb = Keyboard.current;
+        if (kb != null && (kb[teclaSaltar].wasPressedThisFrame)) saltar = true;
+    }
+
+    // ---------------- Reproducción ----------------
+    IEnumerator Reproducir()
+    {
+        SetFade(1f);
+        AplicarNoche(0f);
+        yield return null;
+        StartCoroutine(Barras(0f, alturaBarras, 1f));
+        yield return FadeA(0f, fadeInicial);
+
+        foreach (var t in tomas)
+        {
+            if (saltar) break;
+            yield return Tomar(t);
+        }
+
+        yield return FadeA(1f, fadeFinal);
+        SceneManager.LoadScene(siguienteEscena);
+    }
+
+    IEnumerator Tomar(Toma t)
+    {
+        Activar(t.activarAlInicio, true); Activar(t.desactivarAlInicio, false);
+
+        foreach (var a in t.actores)
+        {
+            if (a.actor == null) continue;
+            if (a.desde != null) { a.actor.position = a.desde.position; a.actor.rotation = a.desde.rotation; }
+            var an = a.actor.GetComponentInChildren<Animator>();
+            if (an != null)
+            {
+                an.applyRootMotion = false;
+                if (!string.IsNullOrEmpty(a.animacion)) an.CrossFadeInFixedTime(a.animacion, 0.12f, 0);
+            }
+        }
+
+        float n0 = t.nocheInicio >= 0f ? t.nocheInicio : nocheActual;
+        float n1 = t.nocheFin >= 0f ? t.nocheFin : n0;
+
+        bool verTexto = t.esTitulo || mostrarSubtitulos;
+        SetTexto(verTexto ? t.texto : "", t.esTitulo);
+        if (t.entraDesdeNegro) SetFade(1f);
+
+        float dur = Mathf.Max(0.1f, t.duracion);
+        if (t.voz != null) dur = Mathf.Max(dur, t.retrasoVoz + t.voz.length + 0.6f);   // la toma dura lo que dure la voz
+        bool vozIniciada = false;
+        float e = 0f;
+        while (e < dur && !saltar)
+        {
+            e += Time.deltaTime;
+            float k = Mathf.Clamp01(e / dur);
+            if (!vozIniciada && t.voz != null && e >= t.retrasoVoz) { vozIniciada = true; audioVoz.Stop(); audioVoz.clip = t.voz; audioVoz.volume = volumenVoz; audioVoz.Play(); }
+
+            // cámara
+            if (camara != null && t.camaraInicio != null)
+            {
+                Transform b = t.camaraFin != null ? t.camaraFin : t.camaraInicio;
+                float kc = t.curvaCamara.Evaluate(k);
+                camara.transform.position = Vector3.Lerp(t.camaraInicio.position, b.position, kc);
+                camara.transform.rotation = Quaternion.Slerp(t.camaraInicio.rotation, b.rotation, kc);
+                if (t.fovInicio > 0f) camara.fieldOfView = Mathf.Lerp(t.fovInicio, t.fovFin > 0f ? t.fovFin : t.fovInicio, kc);
+                else camara.fieldOfView = fovPorDefecto;
+            }
+            // enfoque dinámico (se aplica después de mover a los actores, ver más abajo)
+
+
+            // actores
+            foreach (var a in t.actores)
+            {
+                if (a.actor == null) continue;
+                if (a.desde != null && a.hasta != null)
+                {
+                    float ka = a.curva.Evaluate(k);
+                    a.actor.position = Vector3.Lerp(a.desde.position, a.hasta.position, ka);
+                    a.actor.rotation = Quaternion.Slerp(a.desde.rotation, a.hasta.rotation, ka);
+                }
+                if (a.repetir && !string.IsNullOrEmpty(a.animacion))
+                {
+                    var an = a.actor.GetComponentInChildren<Animator>();
+                    if (an != null && !an.IsInTransition(0) && an.GetCurrentAnimatorStateInfo(0).normalizedTime >= 0.98f)
+                        an.CrossFadeInFixedTime(a.animacion, 0.05f, 0, 0f);
+                }
+            }
+
+            if (camara != null && t.enfocar != null)
+            {
+                Vector3 objetivo = t.enfocar.position + Vector3.up * t.alturaEnfoque;
+                Vector3 dirE = objetivo - camara.transform.position;
+                if (dirE.sqrMagnitude > 0.01f) camara.transform.rotation = Quaternion.LookRotation(dirE.normalized, Vector3.up);
+            }
+
+            // luz
+            nocheActual = Mathf.Lerp(n0, n1, k);
+            AplicarNoche(nocheActual);
+
+            // texto (aparece y se va suave)
+            if (subGrupo != null)
+                subGrupo.alpha = (!verTexto || string.IsNullOrEmpty(t.texto)) ? 0f : Mathf.Clamp01(Mathf.Min(e / 0.4f, (dur - e) / 0.4f));
+
+            // entrada desde negro
+            if (t.entraDesdeNegro) SetFade(Mathf.Clamp01(1f - e / Mathf.Max(0.05f, t.duracionEntrada)));
+            yield return null;
+        }
+
+        if (subGrupo != null) subGrupo.alpha = 0f;
+        if (saltar && audioVoz != null) audioVoz.Stop();
+        Activar(t.activarAlFinal, true); Activar(t.desactivarAlFinal, false);
+        if (t.destelloAlFinal) StartCoroutine(Destello());
+        if (t.salidaANegro && !saltar) yield return FadeA(1f, 0.5f);
+    }
+
+    // ---------------- Efectos ----------------
+    static void Activar(GameObject[] lista, bool v)
+    {
+        if (lista == null) return;
+        foreach (var g in lista) if (g != null) g.SetActive(v);
+    }
+
+    void AplicarNoche(float n)
+    {
+        if (luzDireccional != null)
+        {
+            luzDireccional.color = Color.Lerp(luzDia, colorNoche, n);
+            luzDireccional.intensity = Mathf.Lerp(intDia, intDia * intensidadLuzNoche, n);
+        }
+        RenderSettings.ambientIntensity = Mathf.Lerp(ambDia, ambDia * ambienteNoche, n);
+    }
+
+    IEnumerator Destello()
+    {
+        flash.color = new Color(1, 1, 1, 1);
+        float t = 0f;
+        while (t < 0.45f) { t += Time.deltaTime; flash.color = new Color(1, 1, 1, 1f - t / 0.45f); yield return null; }
+        flash.color = new Color(1, 1, 1, 0);
+    }
+
+    void SetFade(float a) { if (fade != null) fade.color = new Color(0, 0, 0, a); }
+
+    IEnumerator FadeA(float objetivo, float tiempo)
+    {
+        float ini = fade.color.a, t = 0f;
+        tiempo = Mathf.Max(0.01f, tiempo);
+        while (t < tiempo) { t += Time.deltaTime; SetFade(Mathf.Lerp(ini, objetivo, t / tiempo)); yield return null; }
+        SetFade(objetivo);
+    }
+
+    IEnumerator Barras(float desde, float hasta, float tiempo)
+    {
+        float t = 0f;
+        while (t < tiempo)
+        {
+            t += Time.deltaTime;
+            float h = Mathf.Lerp(desde, hasta, Mathf.SmoothStep(0f, 1f, t / tiempo));
+            barraArriba.rectTransform.anchorMin = new Vector2(0, 1f - h);
+            barraAbajo.rectTransform.anchorMax = new Vector2(1, h);
+            yield return null;
+        }
+    }
+
+    void SetTexto(string s, bool titulo)
+    {
+        if (subtitulo == null) return;
+        subtitulo.text = s;
+        subtitulo.fontSize = titulo ? tamanoTitulo : tamanoTexto;
+        var rt = subtitulo.rectTransform;
+        if (titulo) { rt.anchorMin = new Vector2(0.05f, 0.35f); rt.anchorMax = new Vector2(0.95f, 0.65f); }
+        else { rt.anchorMin = new Vector2(0.08f, 0.02f); rt.anchorMax = new Vector2(0.92f, alturaBarras + 0.04f); }
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+    }
+
+    // ---------------- UI por código ----------------
+    void ConstruirUI()
+    {
+        var cgo = new GameObject("UI_CinematicaIntro");
+        var cv = cgo.AddComponent<Canvas>();
+        cv.renderMode = RenderMode.ScreenSpaceOverlay; cv.sortingOrder = 500;
+        var sc = cgo.AddComponent<CanvasScaler>();
+        sc.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        sc.referenceResolution = new Vector2(1920, 1080); sc.matchWidthOrHeight = 0.5f;
+        cgo.AddComponent<GraphicRaycaster>();
+
+        barraArriba = Rect(cgo.transform, "BarraArriba", Color.black);
+        barraArriba.rectTransform.anchorMin = new Vector2(0, 1); barraArriba.rectTransform.anchorMax = new Vector2(1, 1);
+        barraAbajo = Rect(cgo.transform, "BarraAbajo", Color.black);
+        barraAbajo.rectTransform.anchorMin = new Vector2(0, 0); barraAbajo.rectTransform.anchorMax = new Vector2(1, 0);
+        foreach (var b in new[] { barraArriba, barraAbajo }) { b.rectTransform.offsetMin = b.rectTransform.offsetMax = Vector2.zero; b.raycastTarget = false; }
+
+        var sgo = new GameObject("Subtitulo", typeof(RectTransform));
+        sgo.transform.SetParent(cgo.transform, false);
+        subGrupo = sgo.AddComponent<CanvasGroup>(); subGrupo.alpha = 0f; subGrupo.blocksRaycasts = false;
+        subtitulo = sgo.AddComponent<TextMeshProUGUI>();
+        if (fuente != null) subtitulo.font = fuente;
+        subtitulo.alignment = TextAlignmentOptions.Center;
+        subtitulo.color = Color.white;
+        subtitulo.fontStyle = FontStyles.Bold;
+        subtitulo.outlineWidth = 0.25f; subtitulo.outlineColor = new Color(0.05f, 0.03f, 0.02f, 1f);
+        subtitulo.raycastTarget = false;
+        SetTexto("", false);
+
+        flash = Rect(cgo.transform, "Destello", new Color(1, 1, 1, 0));
+        Estirar(flash); flash.raycastTarget = false;
+        fade = Rect(cgo.transform, "Fade", Color.black);
+        Estirar(fade); fade.raycastTarget = false;
+
+        // botón saltar
+        var bgo = new GameObject("BotonSaltar", typeof(RectTransform));
+        bgo.transform.SetParent(cgo.transform, false);
+        var br = bgo.GetComponent<RectTransform>();
+        br.anchorMin = br.anchorMax = new Vector2(1, 1); br.pivot = new Vector2(1, 1);
+        br.sizeDelta = new Vector2(280, 90); br.anchoredPosition = new Vector2(-40, -40);
+        var bi = bgo.AddComponent<Image>(); bi.color = new Color(0f, 0f, 0f, 0.55f);
+        var btn = bgo.AddComponent<Button>(); btn.targetGraphic = bi;
+        btn.onClick.AddListener(() => saltar = true);
+        var tgo = new GameObject("Texto", typeof(RectTransform));
+        tgo.transform.SetParent(bgo.transform, false);
+        var tt = tgo.AddComponent<TextMeshProUGUI>();
+        if (fuente != null) tt.font = fuente;
+        tt.text = textoSaltar; tt.fontSize = 40; tt.alignment = TextAlignmentOptions.Center; tt.color = Color.white; tt.raycastTarget = false;
+        Estirar(tt.rectTransform);
+    }
+
+    static Image Rect(Transform p, string n, Color c)
+    {
+        var go = new GameObject(n, typeof(RectTransform));
+        go.transform.SetParent(p, false);
+        var i = go.AddComponent<Image>(); i.color = c;
+        return i;
+    }
+    static void Estirar(Image i) { Estirar(i.rectTransform); }
+    static void Estirar(RectTransform r) { r.anchorMin = Vector2.zero; r.anchorMax = Vector2.one; r.offsetMin = r.offsetMax = Vector2.zero; }
+}

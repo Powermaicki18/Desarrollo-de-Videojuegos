@@ -1,0 +1,372 @@
+using System.Collections.Generic;
+using System.Linq;
+using UnityEditor;
+using UnityEditor.Animations;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+// Plog > Crear cinematica final: arma la escena CinematicaFinal (reemplaza al comic final) con lo ya modelado.
+public static partial class PlogCinematicaIntroBuilder
+{
+    const string EscenaOrigenFinal = "Assets/Scenes/SegundoMapa.unity";   // escenario del desierto (Canon Ambar)
+    const string EscenaFinalDestino = "Assets/Scenes/CinematicaFinal.unity";
+    const string PropsDesierto = "Assets/Assets/Escenario2/Modelos/CanonAmbar/Props/";
+    const string MusicaMenuGuid = "bd1e68aae95f74765a8d25aef81c96b0";   // misma musica del comic final
+
+    static Material MatParticula()
+    {
+        string p = Carpeta + "/Mat_Particula.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (m == null)
+        {
+            var sh = Shader.Find("Universal Render Pipeline/Particles/Unlit"); if (sh == null) sh = Shader.Find("Sprites/Default");
+            m = new Material(sh); AssetDatabase.CreateAsset(m, p);
+        }
+        var tex = AssetDatabase.GetBuiltinExtraResource<Texture2D>("Default-Particle.psd");
+        if (tex != null && m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", tex);
+        if (m.HasProperty("_Surface")) { m.SetFloat("_Surface", 1f); m.SetFloat("_Blend", 2f); m.SetFloat("_SrcBlend", 5f); m.SetFloat("_DstBlend", 1f); m.SetFloat("_ZWrite", 0f); m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = 3000; }
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    static GameObject Particulas(string nombre, Vector3 local, Color c1, Color c2, float tam, float tasa, float radio, float velY, float orbital)
+    {
+        var go = new GameObject(nombre); go.transform.SetParent(setRoot, true); go.transform.position = O + local;
+        var ps = go.AddComponent<ParticleSystem>();
+        var main = ps.main; main.loop = true; main.startLifetime = 3f; main.startSpeed = 0f; main.startSize = tam;
+        main.startColor = new ParticleSystem.MinMaxGradient(c1, c2); main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 400;
+        var em = ps.emission; em.rateOverTime = tasa;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = radio; sh.rotation = new Vector3(-90f, 0, 0);
+        var vel = ps.velocityOverLifetime; vel.enabled = true;
+        vel.space = ParticleSystemSimulationSpace.World;
+        vel.x = new ParticleSystem.MinMaxCurve(0f); vel.y = new ParticleSystem.MinMaxCurve(velY); vel.z = new ParticleSystem.MinMaxCurve(0f);
+        if (Mathf.Abs(orbital) > 0.001f) vel.orbitalY = new ParticleSystem.MinMaxCurve(orbital);
+        var col = ps.colorOverLifetime; col.enabled = true;
+        var g = new Gradient(); g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(0f, 1f) });
+        col.color = new ParticleSystem.MinMaxGradient(g);
+        var r = go.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = MatParticula();
+        go.SetActive(false);
+        return go;
+    }
+
+    static GameObject PropDesierto(string nombre, Transform padre, Vector3 pos, float rotY, float esc)
+    {
+        var pf = AssetDatabase.LoadAssetAtPath<GameObject>(PropsDesierto + nombre + ".obj");
+        if (pf == null) { Debug.LogWarning("[Cinematica] No encuentro " + nombre); return null; }
+        var g = (GameObject)Object.Instantiate(pf); g.name = nombre;
+        g.transform.SetParent(padre, true); g.transform.position = pos; g.transform.rotation = Quaternion.Euler(0, rotY, 0); g.transform.localScale = Vector3.one * esc;
+        return g;
+    }
+
+    static bool EsFondoDesierto(Transform t)
+    {
+        for (var x = t; x != null; x = x.parent)
+        {
+            string n = x.name;
+            if (n.Contains("Suelo") || n.Contains("Fondo") || n.Contains("Pared") || n.Contains("Meseta") || n.Contains("Terreno") || n.Contains("Perimetro") || n.Contains("Limite")
+                || n.Contains("Pasto") || n.Contains("Mata_") || n.Contains("Directional") || n.Contains("Camera") || n.Contains("EventSystem")) return true;
+        }
+        return false;
+    }
+
+    static float DistXZ(Bounds b, Vector3 p)
+    {
+        var q = new Vector3(Mathf.Clamp(p.x, b.min.x, b.max.x), 0f, Mathf.Clamp(p.z, b.min.z, b.max.z));
+        return Vector2.Distance(new Vector2(q.x, q.z), new Vector2(p.x, p.z));
+    }
+
+    // Busca el lugar mas despejado del escenario del desierto y pone ahi el origen del set
+    static void CalcularOrigenDesierto()
+    {
+        var props = Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None).Where(r => r != null && !EsFondoDesierto(r.transform)).Select(r => r.bounds).ToList();
+        float mejor = -1f; Vector2 mp = new Vector2(4.5f, -9f);
+        for (int x = -40; x <= 40; x += 2)
+            for (int z = -40; z <= 40; z += 2)
+            {
+                var p = new Vector3(x, 0, z); float d = 999f;
+                foreach (var b in props) { float dd = DistXZ(b, p); if (dd < d) d = dd; if (d < mejor) break; }
+                d -= (Mathf.Abs(x) + Mathf.Abs(z)) * 0.02f;   // prefiere lugares cercanos al centro
+                if (d > mejor) { mejor = d; mp = new Vector2(x, z); }
+            }
+        float y = 0f;
+        var hits = Physics.RaycastAll(new Vector3(mp.x, 200f, mp.y), Vector3.down, 400f);
+        float mejorDy = 999f;
+        foreach (var h in hits) if (Mathf.Abs(h.point.y) < mejorDy) { mejorDy = Mathf.Abs(h.point.y); y = h.point.y; }
+        O = new Vector3(mp.x, y, mp.y);
+        Debug.Log("[CinematicaFinal] Origen del set en " + O + " (espacio libre aprox. " + mejor.ToString("0.0") + " m)");
+    }
+
+    // Apaga (solo en esta copia de la escena) los props que estorban dentro del radio del set
+    static void DespejarEscenario(float radio)
+    {
+        int n = 0;
+        foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+        {
+            if (r == null || EsFondoDesierto(r.transform) || r.transform.IsChildOf(setRoot)) continue;
+            if (DistXZ(r.bounds, O) < radio) { r.enabled = false; n++; }
+        }
+        Debug.Log("[CinematicaFinal] Se apagaron " + n + " props que estorbaban en el set.");
+    }
+
+    // Base escalonada de piedra arenisca con aro brillante (reemplaza al disco plano)
+    static GameObject PedestalEsc(string nombre, Vector3 local, Color brillo)
+    {
+        var raiz = new GameObject(nombre); raiz.transform.SetParent(setRoot, true); raiz.transform.position = O + local;
+        var claro = Mat("ArenaClara", new Color(0.80f, 0.62f, 0.42f));
+        var oscuro = Mat("ArenaOscura", new Color(0.62f, 0.42f, 0.28f));
+        void Piso(string n, float diam, float alto, float y, Material m)
+        {
+            var g = GameObject.CreatePrimitive(PrimitiveType.Cylinder); g.name = n; Object.DestroyImmediate(g.GetComponent<Collider>());
+            g.transform.SetParent(raiz.transform, true);
+            g.transform.position = O + local + Vector3.up * (y + alto * 0.5f);
+            g.transform.localScale = new Vector3(diam, alto * 0.5f, diam);
+            g.GetComponent<Renderer>().sharedMaterial = m;
+        }
+        Piso("Escalon_1", 2.8f, 0.30f, 0f, oscuro);
+        Piso("Escalon_2", 2.2f, 0.30f, 0.30f, claro);
+        Piso("Escalon_3", 1.6f, 0.20f, 0.60f, oscuro);
+        var aro = GameObject.CreatePrimitive(PrimitiveType.Cylinder); aro.name = "Aro_Brillo"; Object.DestroyImmediate(aro.GetComponent<Collider>());
+        aro.transform.SetParent(raiz.transform, true);
+        aro.transform.position = O + local + Vector3.up * 0.805f;
+        aro.transform.localScale = new Vector3(1.45f, 0.005f, 1.45f);
+        aro.GetComponent<Renderer>().sharedMaterial = MatUnlit("AroBrillo_" + ColorUtility.ToHtmlStringRGB(brillo), brillo);
+        raiz.SetActive(false);
+        return raiz;
+    }
+
+    [MenuItem("Plog/Crear cinematica final")]
+    public static void CrearFinal()
+    {
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+        if (AssetDatabase.LoadAssetAtPath<SceneAsset>(EscenaFinalDestino) != null)
+        {
+            string viejo = AssetDatabase.GenerateUniqueAssetPath("Assets/Scenes/CinematicaFinal_anterior.unity");
+            AssetDatabase.MoveAsset(EscenaFinalDestino, viejo);
+            AssetDatabase.Refresh();
+            EditorBuildSettings.scenes = EditorBuildSettings.scenes.Where(sc => !sc.path.Contains("CinematicaFinal_anterior")).ToArray();
+            Debug.Log("[CinematicaFinal] La escena anterior quedo como " + viejo);
+        }
+        AssetDatabase.Refresh();
+        if (!AssetDatabase.IsValidFolder(Carpeta)) AssetDatabase.CreateFolder("Assets", "Cinematica");
+        if (!AssetDatabase.IsValidFolder(Carpeta + "/VozFinal")) AssetDatabase.CreateFolder(Carpeta, "VozFinal");
+
+        // animaciones y controladores (se reutilizan los de la cinematica del intro si ya existen)
+        ConfigurarClip(TukoDir + "Tuko_Caminar.fbx", true);
+        ConfigurarClip(TukoDir + "Tuko_Sorpresa.fbx", false);
+        ConfigurarClip(TukoDir + "Tuko_Mirar.fbx", false);
+        var ctrl = AssetDatabase.LoadAssetAtPath<AnimatorController>(Carpeta + "/Tuko_Cinematica.controller");
+        if (ctrl == null) ctrl = CrearControlador();
+        ConfigurarPueblo("Alien"); ConfigurarPueblo("Dino");
+
+        AssetDatabase.CopyAsset(EscenaOrigenFinal, EscenaFinalDestino);
+        AssetDatabase.Refresh();
+        var scene = EditorSceneManager.OpenScene(EscenaFinalDestino, OpenSceneMode.Single);
+        LimpiarEscena(scene, "VictoriaManager", "CanvasVictoria");   // se conserva el cartel de Ganaste
+        Physics.SyncTransforms();
+        CalcularOrigenDesierto();
+
+        setRoot = new GameObject("Set_CinematicaFinal").transform; setRoot.position = O;
+        DespejarEscenario(12f);
+        tomasRoot = new GameObject("Tomas").transform; tomasRoot.SetParent(setRoot, true);
+        actoresRoot = new GameObject("Actores").transform; actoresRoot.SetParent(setRoot, true);
+
+        Vector3 W(float x, float y, float z) { return new Vector3(x, y, z); }
+        Vector3 Dz(float x, float y, float z) { return new Vector3(x, y, z); }
+        Vector3 Z = Vector3.forward;
+        Vector3 Abajo = new Vector3(0f, -1f, 0.15f);   // direccion para dejar a un personaje "tirado" boca abajo
+
+        // ---------- escenografia del bosque ----------
+        var matPiedra = Mat("Piedra", new Color(0.55f, 0.52f, 0.5f));
+        var matMadera = Mat("Madera", new Color(0.4f, 0.26f, 0.14f));
+        var tRoja = MatBandera("TelaBanderaRoja", "bandera_Roja_BaseColor.png");
+        var tMorada = MatBandera("TelaBanderaMorada", "bandera_Morada_BaseColor.png");
+        var pedL = PedestalEsc("Pedestal_Izq", W(-2.4f, 0, 8f), new Color(1f, 0.6f, 0.2f));
+        var pedR = PedestalEsc("Pedestal_Der", W(2.4f, 0, 8f), new Color(0.2f, 0.9f, 0.8f));
+        var totL = Totem("Totem_Hex", W(-2.4f, 0.8f, 8f), new Color(1f, 0.55f, 0.15f));
+        var totR = Totem("Totem_Tierra", W(2.4f, 0.8f, 8f), new Color(0.2f, 0.9f, 0.8f));
+        totL.SetActive(false); totR.SetActive(false);
+        var banRoja = BanderaFBX("Bandera_Roja", W(-0.8f, 0, 9.5f), tRoja, matMadera, 1.3f); banRoja.SetActive(false);
+        var banMorada = BanderaFBX("Bandera_Morada", W(3.6f, 0, 9.5f), tMorada, matMadera, 1.3f); banMorada.SetActive(false);
+
+        // totems chicos (los que carga Tuko)
+        var miniHex = Totem("Mini_Totem_Hex", W(-0.8f, 1.6f, 3.9f), new Color(1f, 0.55f, 0.15f), 0.7f, 4f);
+        var miniTierra = Totem("Mini_Totem_Tierra", W(0.8f, 1.6f, 3.9f), new Color(0.2f, 0.9f, 0.8f), 0.7f, 4f);
+        // para la toma 3 hay otro par de totems chicos, delante de Tuko
+        miniHex.SetActive(false); miniTierra.SetActive(false);
+        var mini3Hex = Totem("Mini3_Totem_Hex", W(-0.1f, 1.0f, 4.6f), new Color(1f, 0.55f, 0.15f), 0.7f, 4f);
+        var mini3Tierra = Totem("Mini3_Totem_Tierra", W(-0.1f, 1.0f, 5.3f), new Color(0.2f, 0.9f, 0.8f), 0.7f, 4f);
+        mini3Hex.SetActive(false); mini3Tierra.SetActive(false);
+
+        var tuko = Actor(TukoDir + "Player.prefab", "Tuko", W(0, 0, 5f), null);
+        var tAnim = tuko ? tuko.GetComponentInChildren<Animator>() : null;
+        if (tAnim != null && ctrl != null) tAnim.runtimeAnimatorController = ctrl;
+        if (tuko) tuko.SetActive(false);
+
+        var dino1 = Aldeano("Dino", "Dino_1", W(0.7f, 0, 6.2f), 1.5f);
+        var dino2 = Aldeano("Dino", "Dino_2", W(1.9f, 0, 5.6f), 1.5f);
+        var alien1 = Aldeano("Alien", "Alien_1", W(3.1f, 0, 5.6f), 1.5f);
+        var alien2 = Aldeano("Alien", "Alien_2", W(4.3f, 0, 6.2f), 1.5f);
+        var dino3 = Aldeano("Dino", "Dino_3", W(-2.0f, 0, 4.9f), 1.5f);
+        var dino4 = Aldeano("Dino", "Dino_4", W(-3.1f, 0, 5.6f), 1.5f);
+        var alien3 = Aldeano("Alien", "Alien_3", W(2.0f, 0, 4.9f), 1.5f);
+        var alien4 = Aldeano("Alien", "Alien_4", W(3.1f, 0, 5.6f), 1.5f);
+        foreach (var g in new[] { dino1, dino2, alien1, alien2, dino3, dino4, alien3, alien4 }) if (g) g.SetActive(false);
+
+        // particulas
+        var chispas = Particulas("Chispas_Doradas", W(0, 0.2f, 8f), new Color(1f, 0.85f, 0.3f), new Color(1f, 1f, 0.7f), 0.12f, 70f, 3.2f, 0.7f, 90f);
+        var confeti = Particulas("Confeti", W(0, 5.5f, 5f), new Color(1f, 0.3f, 0.5f), new Color(0.3f, 0.8f, 1f), 0.16f, 45f, 3.5f, -1.2f, 0f);
+        var estrellas = Particulas("Estrellas_Aturdidos", W(2.4f, 1.1f, 0.6f), new Color(1f, 0.95f, 0.3f), new Color(1f, 0.8f, 0.2f), 0.18f, 10f, 0.9f, 0.3f, 120f);
+        var sol = GameObject.CreatePrimitive(PrimitiveType.Sphere); Object.DestroyImmediate(sol.GetComponent<Collider>());
+        sol.name = "Sol_Atardecer"; sol.transform.SetParent(setRoot, true); sol.transform.position = O + W(0, 13f, 60f); sol.transform.localScale = Vector3.one * 9f;
+        sol.GetComponent<Renderer>().sharedMaterial = MatUnlit("SolAtardecer", new Color(1f, 0.93f, 0.55f));
+        foreach (var hl in new[] { new Vector2(30f, 0.5f), new Vector2(16f, 0.8f) })
+        {
+            var halo = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(halo.GetComponent<Collider>());
+            halo.name = "Halo_Sol"; halo.transform.SetParent(sol.transform, true);
+            halo.transform.position = sol.transform.position - Vector3.forward * 0.5f; halo.transform.rotation = Quaternion.identity;
+            halo.transform.localScale = Vector3.one * hl.x / 9f * 9f;
+            string pm2 = Carpeta + "/Mat_HaloSol_" + hl.x + ".mat";
+            var mh = AssetDatabase.LoadAssetAtPath<Material>(pm2);
+            if (mh == null) { mh = new Material(MatParticula()); AssetDatabase.CreateAsset(mh, pm2); }
+            mh.SetColor("_BaseColor", new Color(1f, 0.55f, 0.2f, hl.y)); EditorUtility.SetDirty(mh);
+            halo.GetComponent<Renderer>().sharedMaterial = mh;
+        }
+        sol.SetActive(false);
+
+        // ---------- desierto: el propio escenario de la escena; solo se agregan los tótems y los derrotados ----------
+        var totDesierto = Totem("Totem_Tierra", Dz(0.6f, 0f, 0.2f), new Color(0.2f, 0.9f, 0.8f), 1.6f, 3f);
+        totDesierto.SetActive(false);
+        var derrotadoMogo = Actor("Assets/Personajes/Mogo/Mogo_Idle.prefab", "Derrotado_Mogo", Dz(1.4f, 0, 1.9f), null);
+        var derrotadoNox = Actor("Assets/Personajes/Nox/Enemy_Nox.prefab", "Derrotado_Nox", Dz(2.8f, 0, -0.4f), null);
+        var derrotadoGoro = Actor("Assets/Personajes/Goro/Enemy_Goro.prefab", "Derrotado_Goro", Dz(1.0f, 0, -1.9f), null);
+        foreach (var g in new[] { derrotadoMogo, derrotadoNox, derrotadoGoro }) if (g) g.SetActive(false);
+
+        // ---------- camara y controlador ----------
+        var cam = Camera.main;
+        if (cam == null) { var cg = new GameObject("Main Camera"); cg.tag = "MainCamera"; cam = cg.AddComponent<Camera>(); cg.AddComponent<AudioListener>(); }
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = new Color(0.98f, 0.80f, 0.58f);   // cielo calido de desierto (antes verde)
+        foreach (var mb in cam.GetComponents<MonoBehaviour>())
+            if (mb != null && (mb.GetType().Name == "CameraFollow" || mb.GetType().Name == "CameraOclusion")) Object.DestroyImmediate(mb);
+        var ctlGo = new GameObject("CinematicaFinal");
+        var ctl = ctlGo.AddComponent<CinematicaIntroController>();
+        ctl.camara = cam;
+        ctl.luzDireccional = Object.FindObjectsByType<Light>(FindObjectsSortMode.None).FirstOrDefault(l => l.type == LightType.Directional);
+        ctl.girar = new[] { totL.transform, totR.transform };
+        ctl.siguienteEscena = "MenuPrincipal";
+        ctl.velocidadGlobal = 1.15f;
+        string pm = AssetDatabase.GUIDToAssetPath(MusicaMenuGuid);
+        if (!string.IsNullOrEmpty(pm)) ctl.musicaFondo = AssetDatabase.LoadAssetAtPath<AudioClip>(pm);
+
+        var T = new List<CinematicaIntroController.Toma>();
+        int n = 1;
+        CinematicaIntroController.Toma Nueva(string nombre, float dur, string texto, Vector3 pA, Vector3 lA, Vector3 pB, Vector3 lB)
+        {
+            int idx = n++;
+            var go = new GameObject(string.Format("Toma_{0:00}_{1}", idx, nombre)); go.transform.SetParent(tomasRoot, true);
+            var t = new CinematicaIntroController.Toma { nombre = nombre, duracion = dur, texto = texto };
+            t.voz = AssetDatabase.LoadAssetAtPath<AudioClip>(string.Format("Assets/Cinematica/VozFinal/VozFinal_{0:00}.wav", idx));
+            t.camaraInicio = Marcador(go.transform, "Cam_Inicio", pA, lA);
+            t.camaraFin = Marcador(go.transform, "Cam_Fin", pB, lB);
+            T.Add(t); return t;
+        }
+        void Mov(CinematicaIntroController.Toma t, GameObject a, Vector3 pos, Vector3 haciaDe, string anim, bool repetir)
+        {
+            if (a == null) return;
+            var parent = tomasRoot.Find(string.Format("Toma_{0:00}_{1}", n - 1, t.nombre));
+            var m = new CinematicaIntroController.MovimientoActor { actor = a.transform, animacion = anim, repetir = repetir };
+            m.desde = Marcador(parent, a.name + "_Desde", pos, pos + haciaDe);
+            m.hasta = Marcador(parent, a.name + "_Hasta", pos, pos + haciaDe);
+            t.actores.Add(m);
+        }
+
+        void MovA(CinematicaIntroController.Toma t, GameObject a, Vector3 posA, Vector3 posB, Vector3 haciaDe, string anim, bool repetir)
+        {
+            if (a == null) return;
+            var parent = tomasRoot.Find(string.Format("Toma_{0:00}_{1}", n - 1, t.nombre));
+            var m = new CinematicaIntroController.MovimientoActor { actor = a.transform, animacion = anim, repetir = repetir };
+            m.desde = Marcador(parent, a.name + "_Desde", posA, posA + haciaDe);
+            m.hasta = Marcador(parent, a.name + "_Hasta", posB, posB + haciaDe);
+            t.actores.Add(m);
+        }
+
+        // 1: desierto, la ultima horda derrotada
+        var t1 = Nueva("HordaDerrotada", 8f, "La última horda rebelde fue derrotada.", Dz(-4.8f, 1.4f, -3.6f), Dz(1.8f, 0.5f, 0.6f), Dz(-3.2f, 1.2f, -1.6f), Dz(1.8f, 0.5f, 0.6f));
+        t1.entraDesdeNegro = true; t1.duracionEntrada = 1.0f; t1.nocheInicio = 0f; t1.nocheFin = 0f; t1.fovInicio = 52f; t1.fovFin = 46f;
+        t1.activarAlInicio = new[] { tuko, totDesierto, derrotadoMogo, derrotadoNox, derrotadoGoro, estrellas };
+        t1.desactivarAlFinal = new[] { totDesierto, derrotadoMogo, derrotadoNox, derrotadoGoro, estrellas };
+        Mov(t1, tuko, Dz(-2.4f, 0, -0.8f), new Vector3(1f, 0, 0.55f), "", false);
+        Mov(t1, derrotadoMogo, Dz(1.4f, 0.1f, 1.9f), new Vector3(1f, -0.5f, 0.2f), "", false);
+        Mov(t1, derrotadoNox, Dz(2.8f, 0f, -0.4f), new Vector3(-1f, 0f, 0.5f), "Death", false);
+        Mov(t1, derrotadoGoro, Dz(1.0f, 0f, -1.9f), new Vector3(-1f, 0f, 0.3f), "Death", false);
+
+        // 2: Tuko con los dos totems
+        var t2 = Nueva("TukoTotems", 7f, "Tuko recuperó los dos tótems ancestrales.", W(0, 1.2f, 0.4f), W(0, 1.9f, 4f), W(0, 1.7f, 1.8f), W(0, 1.9f, 4f));
+        t2.destelloAlFinal = false; t2.fovInicio = 50f; t2.fovFin = 40f; t2.nocheInicio = 0f; t2.nocheFin = 0f;
+        t2.activarAlInicio = new[] { tuko, miniHex, miniTierra, chispas }; t2.desactivarAlFinal = new[] { miniHex, miniTierra, chispas };
+        Mov(t2, tuko, W(0, 0, 4f), -Z, "Sorpresa", false);
+
+        // 3: la verdad salio a la luz
+        var t3 = Nueva("LaVerdad", 7f, "La verdad salió a la luz.", W(1.2f, 1.5f, 0.6f), W(1.2f, 1.3f, 5.6f), W(1.6f, 1.5f, 1.8f), W(1.2f, 1.3f, 5.6f));
+        t3.fovInicio = 50f; t3.fovFin = 44f;
+        t3.activarAlInicio = new[] { tuko, mini3Hex, mini3Tierra, banRoja, banMorada, dino1, dino2, alien1, alien2 };
+        t3.desactivarAlFinal = new[] { mini3Hex, mini3Tierra, banRoja, banMorada, dino1, dino2, alien1, alien2 };
+        Mov(t3, tuko, W(-1.2f, 0, 4.9f), new Vector3(1f, 0, 0.05f), "", false);
+        Mov(t3, dino1, W(0.7f, 0, 6.2f), new Vector3(-1f, 0, -0.6f), "", false);
+        Mov(t3, dino2, W(1.9f, 0, 5.6f), new Vector3(-1f, 0, -0.7f), "", false);
+        Mov(t3, alien1, W(3.1f, 0, 5.6f), new Vector3(-1f, 0, -0.7f), "", false);
+        Mov(t3, alien2, W(4.3f, 0, 6.2f), new Vector3(-1f, 0, -0.6f), "", false);
+
+        // 4: el equilibrio regresa (tótems en sus pedestales + chispas doradas)
+        var t4 = Nueva("Equilibrio", 8f, "Y el equilibrio regresó al mundo de Plog.", W(0, 2.2f, -0.8f), W(0, 1.8f, 8f), W(0, 2.7f, 2.6f), W(0, 1.8f, 8f));
+        t4.fovInicio = 55f; t4.fovFin = 50f;
+        t4.activarAlInicio = new[] { pedL, pedR, totL, totR, chispas }; t4.desactivarAlFinal = new[] { chispas };
+
+        // 5: los pueblos unidos
+        var t5 = Nueva("Unidos", 7f, "Los pueblos volvieron a estar unidos.", W(0, 1.4f, 0.4f), W(0, 1.3f, 5f), W(0, 1.7f, 1.6f), W(0, 1.4f, 5f));
+        t5.fovInicio = 52f; t5.fovFin = 46f;
+        t5.activarAlInicio = new[] { pedL, pedR, totL, totR, tuko, dino3, dino4, alien3, alien4, confeti };
+        t5.desactivarAlFinal = new[] { tuko, dino3, dino4, alien3, alien4, confeti };
+        Mov(t5, tuko, W(0, 0, 5f), -Z, "Sorpresa", false);
+        Mov(t5, dino3, W(-1.9f, 0, 4.9f), new Vector3(0.4f, 0, -1f), "Wave", true);
+        Mov(t5, dino4, W(-3.1f, 0, 5.6f), new Vector3(0.4f, 0, -1f), "Wave", true);
+        Mov(t5, alien3, W(1.9f, 0, 4.9f), new Vector3(-0.4f, 0, -1f), "Wave", true);
+        Mov(t5, alien4, W(3.1f, 0, 5.6f), new Vector3(-0.4f, 0, -1f), "Wave", true);
+
+        // 6: atardecer, la aventura apenas comienza
+        var t6 = Nueva("Atardecer", 8f, "Pero la aventura de Tuko apenas comienza...", W(1.0f, 1.5f, -0.8f), W(0, 1.8f, 12f), W(0.4f, 1.9f, 3.2f), W(0, 2.0f, 14f));
+        t6.fovInicio = 48f; t6.fovFin = 54f;
+        t6.ajustarLuz = true; t6.colorLuz = new Color(1f, 0.42f, 0.18f); t6.intensidadLuz = 1.8f; t6.rotacionLuz = new Vector3(7f, 180f, 0f);
+        t6.ajustarCielo = true; t6.colorCielo = new Color(0.93f, 0.40f, 0.25f); t6.nocheInicio = 0f; t6.nocheFin = 0.3f;
+        t6.activarAlInicio = new[] { pedL, pedR, totL, totR, tuko, sol };
+        MovA(t6, tuko, W(0, 0, 1.5f), W(0, 0, 10f), Z, "Caminar", true);
+        t6.enfocar = null;
+
+        ctl.tomas = T;
+
+        // al terminar: aparece el cartel de "Ganaste" y su boton lleva al menu
+        try
+        {
+            var vc = Object.FindFirstObjectByType<VictoriaController>(FindObjectsInactive.Include);
+            if (vc != null)
+            {
+                var so = new SerializedObject(vc);
+                var pe = so.FindProperty("siguienteEscena"); if (pe != null) pe.stringValue = "MenuPrincipal";
+                var pt = so.FindProperty("totemPrefab"); if (pt != null) pt.objectReferenceValue = null;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                if (ctl.alTerminar == null) ctl.alTerminar = new UnityEngine.Events.UnityEvent();
+                UnityEditor.Events.UnityEventTools.AddPersistentListener(ctl.alTerminar, vc.MostrarPanel);
+            }
+            else Debug.LogWarning("[CinematicaFinal] No encontre VictoriaController: no aparecera el cartel de Ganaste.");
+        }
+        catch (System.Exception ex) { Debug.LogWarning("[CinematicaFinal] No se pudo enlazar el cartel de Ganaste: " + ex.Message); }
+
+        Selection.activeGameObject = ctlGo;
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        var lista = EditorBuildSettings.scenes.ToList();
+        if (!lista.Any(sc => sc.path == EscenaFinalDestino)) { lista.Add(new EditorBuildSettingsScene(EscenaFinalDestino, true)); EditorBuildSettings.scenes = lista.ToArray(); }
+        Debug.Log("[CinematicaFinal] Escena creada: " + EscenaFinalDestino + ". Dale Play. Ajusta camaras en 'Set_CinematicaFinal/Tomas'. Voces: Assets/Cinematica/VozFinal/VozFinal_01..06.wav");
+    }
+}
