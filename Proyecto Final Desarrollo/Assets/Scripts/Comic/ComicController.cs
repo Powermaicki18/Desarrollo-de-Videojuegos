@@ -29,6 +29,11 @@ public class ComicController : MonoBehaviour
     [SerializeField] private float aumentoBoton = 1.12f;
     [SerializeField] private float duracionBoton = 0.12f;
 
+    [Header("Comic de inicio")]
+    [Tooltip("Apagado: al tocar JUGAR no se muestra el comic y se va directo a la escena de abajo (la cinematica del intro).")]
+    [SerializeField] private bool mostrarComic = false;
+    [SerializeField] private string escenaSinComic = "CinematicaIntro";
+
     [Header("Cambio de escena")]
     [SerializeField] private string nombreSiguienteEscena = "PrimerMapa";
 
@@ -47,8 +52,11 @@ public class ComicController : MonoBehaviour
     private void Start()
     {
         // Mostrar únicamente el menú principal
-        panelInicio.SetActive(true);
-        panelComic.SetActive(false);
+        if (panelInicio != null) panelInicio.SetActive(true);
+        if (panelComic != null) panelComic.SetActive(false);
+
+        // Sin comic: no hace falta preparar viñetas, tap ni boton de saltar
+        if (!mostrarComic || panelComic == null || vinetas == null) return;
 
         // Guardar la escala original de cada viñeta
         escalasOriginales = new Vector3[vinetas.Length];
@@ -179,7 +187,25 @@ public class ComicController : MonoBehaviour
 
         cinematicaIniciada = true;
 
+        if (!mostrarComic || !isActiveAndEnabled)
+        {
+            // sin comic (o con ComicManager desactivado): se carga la escena de inmediato, sin corrutinas
+            CargarDestinoSinComic();
+            return;
+        }
+
         StartCoroutine(SecuenciaCompleta());
+    }
+
+    // Sin comic: se va directo a la siguiente escena
+    private void CargarDestinoSinComic()
+    {
+        if (escenaCargando) return;
+        escenaCargando = true;
+        Time.timeScale = 1f;
+        string destino = string.IsNullOrWhiteSpace(escenaSinComic) ? nombreSiguienteEscena : escenaSinComic;
+        if (Application.CanStreamedLevelBeLoaded(destino)) SceneManager.LoadScene(destino);
+        else { escenaCargando = false; Debug.LogError("La escena no esta en Build Profiles: " + destino); }
     }
 
     private IEnumerator SecuenciaCompleta()

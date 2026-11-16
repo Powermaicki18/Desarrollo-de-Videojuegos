@@ -28,6 +28,10 @@ public class Health : MonoBehaviour
     [Tooltip("Escribe en la Consola cada golpe: quien lo recibe, cuanto dano y cuanta vida queda.")]
     public bool logDamage = false;
 
+    [Header("Mejoras (cartas)")]
+    [Tooltip("Multiplica el dano que recibe. 1 = normal, 0.8 = 20 % menos (carta Escudo).")]
+    public float damageTakenMultiplier = 1f;
+
     [Header("Zona de impacto (opcional)")]
     public Collider hurtbox;
 
@@ -36,6 +40,11 @@ public class Health : MonoBehaviour
     public UnityEvent onDeath;
 
     public float CurrentHealth { get; private set; }
+
+    // vida maxima original (antes de las cartas) y ultimo golpe amortiguado por el escudo, para la barra
+    private float baseMaxHealth;
+    private float lastShieldTime = -99f;
+    private static GUIStyle estiloMejora;
 
     public bool IsDead => CurrentHealth <= 0f;
 
@@ -51,6 +60,7 @@ public class Health : MonoBehaviour
     private void Awake()
     {
         CurrentHealth = maxHealth;
+        baseMaxHealth = maxHealth;
 
         if (!hurtbox)
         {
@@ -95,6 +105,9 @@ public class Health : MonoBehaviour
     {
         if (IsDead || IsInvulnerable)
             return;
+
+        amount *= damageTakenMultiplier;
+        if (damageTakenMultiplier < 1f) lastShieldTime = Time.time;   // destello de la barra de escudo
 
         float before = CurrentHealth;
 
@@ -176,7 +189,10 @@ public class Health : MonoBehaviour
             return;
 
         // Tamaño de la barra.
-        float w = 70f;
+        bool esJugador = CompareTag("Player");
+        bool conVida = esJugador && PlogMejoras.Elegidas.Contains(TipoMejora.Vida);
+        bool conEscudo = esJugador && PlogMejoras.Elegidas.Contains(TipoMejora.Escudo);
+        float w = conVida ? 88f : 70f;   // la carta de Vida alarga la barra
         float h = 9f;
 
         Rect r = new Rect(
@@ -215,6 +231,32 @@ public class Health : MonoBehaviour
             ),
             Texture2D.whiteTexture
         );
+
+        // Distintivos de las cartas (solo el jugador)
+        if (conVida)
+        {
+            // marco dorado alrededor de la barra + texto con la vida extra
+            GUI.color = new Color(1f, 0.85f, 0.2f, 1f);
+            GUI.DrawTexture(new Rect(r.x - 2f, r.y - 2f, r.width + 4f, 2f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(r.x - 2f, r.y + r.height, r.width + 4f, 2f), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(r.x - 2f, r.y, 2f, r.height), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(r.x + r.width, r.y, 2f, r.height), Texture2D.whiteTexture);
+            if (estiloMejora == null) { estiloMejora = new GUIStyle(GUI.skin.label); estiloMejora.fontSize = 12; estiloMejora.fontStyle = FontStyle.Bold; }
+            estiloMejora.normal.textColor = new Color(1f, 0.9f, 0.3f, 1f);
+            GUI.Label(new Rect(r.xMax + 4f, r.y - 5f, 50f, 20f), "+" + Mathf.RoundToInt(maxHealth - baseMaxHealth), estiloMejora);
+        }
+        if (conEscudo)
+        {
+            // segunda barra, mas abajo: el escudo (destella al amortiguar un golpe)
+            var r2 = new Rect(r.x, r.y + h + 3f, w, 6f);
+            GUI.color = Color.black;
+            GUI.DrawTexture(r2, Texture2D.whiteTexture);
+            GUI.color = (Time.time - lastShieldTime < 0.3f) ? Color.white : new Color(0.7f, 0.4f, 1f, 1f);
+            GUI.DrawTexture(new Rect(r2.x + 1f, r2.y + 1f, w - 2f, 4f), Texture2D.whiteTexture);
+            if (estiloMejora == null) { estiloMejora = new GUIStyle(GUI.skin.label); estiloMejora.fontSize = 12; estiloMejora.fontStyle = FontStyle.Bold; }
+            estiloMejora.normal.textColor = new Color(0.8f, 0.6f, 1f, 1f);
+            GUI.Label(new Rect(r2.xMax + 4f, r2.y - 7f, 60f, 20f), "-" + Mathf.RoundToInt((1f - damageTakenMultiplier) * 100f) + "%", estiloMejora);
+        }
 
         // Restaurar color.
         GUI.color = Color.white;

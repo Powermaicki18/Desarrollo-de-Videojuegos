@@ -19,6 +19,10 @@ public class VictoriaController : MonoBehaviour
     [Header("Siguiente escena")]
     [SerializeField] private string siguienteEscena = "SegundoMapa";
 
+    [Header("Cartas de mejora")]
+    [SerializeField] private bool mostrarCartas = true;
+    private bool cartasMostradas = false;
+
     [Header("Totem de victoria")]
     [SerializeField] private GameObject totemPrefab;
     [SerializeField] private Material totemMaterial;
@@ -370,6 +374,21 @@ public class VictoriaController : MonoBehaviour
     {
         if (!victoriaActiva)
             return;
+
+        // Entre mapas: primero se elige una mejora (carta) para el siguiente nivel
+        if (mostrarCartas && !cartasMostradas && !string.IsNullOrWhiteSpace(siguienteEscena) && siguienteEscena.Contains("Mapa"))
+        {
+            cartasMostradas = true;
+            if (panelVictoria != null) panelVictoria.SetActive(false);
+            PlogCartasUI.Mostrar(CargarSiguienteEscena);
+            return;
+        }
+
+        CargarSiguienteEscena();
+    }
+
+    private void CargarSiguienteEscena()
+    {
 
         // Restaurar el tiempo antes de cambiar escena
         Time.timeScale = 1f;

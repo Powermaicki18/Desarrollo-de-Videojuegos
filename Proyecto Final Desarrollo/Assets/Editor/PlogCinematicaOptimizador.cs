@@ -46,20 +46,22 @@ public static partial class PlogCinematicaIntroBuilder
 
         // 2) volumen que ven las camaras (todas las tomas, varias muestras; aspecto muy ancho por si el celular es alargado)
         var frustums = new List<Plane[]>();
-        var go = new GameObject("__tmpCam"); var cam = go.AddComponent<Camera>();
-        cam.aspect = 2.4f; cam.nearClipPlane = 0.1f; cam.farClipPlane = ctl.camara != null ? ctl.camara.farClipPlane : 500f;
+        var posCam = new List<Vector3>();
+        float far = ctl.camara != null ? ctl.camara.farClipPlane : 500f;
         void Muestras(Transform a, Transform b, float f0, float f1, Transform enfocar, float alt)
         {
             if (a == null) return; if (b == null) b = a;
             for (int i = 0; i <= 10; i++)
             {
                 float k = i / 10f;
-                cam.transform.position = Vector3.Lerp(a.position, b.position, k);
+                Vector3 pos = Vector3.Lerp(a.position, b.position, k);
                 var rot = Quaternion.Slerp(a.rotation, b.rotation, k);
-                if (enfocar != null) { var d = enfocar.position + Vector3.up * alt - cam.transform.position; if (d.sqrMagnitude > 0.01f) rot = Quaternion.LookRotation(d.normalized, Vector3.up); }
-                cam.transform.rotation = rot;
-                cam.fieldOfView = Mathf.Lerp(f0, f1, k) + 6f;   // un poco de margen
-                frustums.Add(GeometryUtility.CalculateFrustumPlanes(cam));
+                if (enfocar != null) { var d = enfocar.position + Vector3.up * alt - pos; if (d.sqrMagnitude > 0.01f) rot = Quaternion.LookRotation(d.normalized, Vector3.up); }
+                float fov = Mathf.Min(120f, Mathf.Lerp(f0, f1, k) + 15f);   // bastante margen
+                var vista = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(pos, rot, Vector3.one).inverse;
+                var proy = Matrix4x4.Perspective(fov, 2.6f, 0.1f, far);       // aspecto muy ancho (celulares alargados)
+                frustums.Add(GeometryUtility.CalculateFrustumPlanes(proy * vista));
+                posCam.Add(pos);
             }
         }
         foreach (var t in ctl.tomas)
@@ -69,7 +71,6 @@ public static partial class PlogCinematicaIntroBuilder
             Muestras(t.camaraInicio, t.camaraFin, f0, f1, t.enfocar, t.alturaEnfoque);
             if (t.panelDividido) Muestras(t.camara2Inicio, t.camara2Fin, f0, f1, null, 0f);
         }
-        Object.DestroyImmediate(go);
 
         // 3) que renderers no se ven nunca
         var rends = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None).Where(r => r.gameObject.scene == scene && !Prot(r.transform)).ToList();
@@ -78,15 +79,19 @@ public static partial class PlogCinematicaIntroBuilder
         {
             if (r is ParticleSystemRenderer) continue;
             if (!r.enabled || !r.gameObject.activeInHierarchy) { ocultos.Add(r); continue; }
-            var b = r.bounds; b.Expand(6f);   // margen: asi no se pierden sombras que entran a cuadro
+            var b = r.bounds;
+            if (b.size.magnitude > 40f) continue;                           // suelos, paredes y mesetas enormes: se conservan siempre
             bool visible = false;
-            foreach (var pl in frustums) if (GeometryUtility.TestPlanesAABB(pl, b)) { visible = true; break; }
+            foreach (var pc in posCam) if (b.SqrDistance(pc) < 45f * 45f) { visible = true; break; }   // todo lo cercano a una camara se conserva
+            b.Expand(12f);                                                   // margen: asi no se pierden sombras que entran a cuadro
+            if (!visible) foreach (var pl in frustums) if (GeometryUtility.TestPlanesAABB(pl, b)) { visible = true; break; }
             if (!visible) ocultos.Add(r);
         }
         var borrar = new List<GameObject>();
         foreach (var r in ocultos)
         {
             var g = r.gameObject;
+            if (g.GetComponentsInChildren<Component>(true).Any(c => c != null && c.GetType().Name.StartsWith("NavMesh"))) continue;   // nunca se toca la malla de navegacion (borrarla borra su archivo)
             if (g.GetComponentInChildren<Light>(true) || g.GetComponentInChildren<Camera>(true) || g.GetComponentInChildren<ReflectionProbe>(true) || g.GetComponentInChildren<AudioListener>(true)) continue;
             if (g.GetComponentsInChildren<Renderer>(true).All(x => ocultos.Contains(x))) borrar.Add(g);
         }
@@ -94,6 +99,7 @@ public static partial class PlogCinematicaIntroBuilder
         int nBorrados = 0;
         foreach (var g in borrar) if (g != null) { Object.DestroyImmediate(g); nBorrados++; }
 
+        // (los colliders no se quitan si el objeto tiene NavMesh; y nada de lo anterior borra archivos del proyecto)
         // 4) colliders (en una cinematica no sirven) y objetos que quedaron vacios
         int nCol = 0;
         foreach (var c in Object.FindObjectsByType<Collider>(FindObjectsInactive.Include, FindObjectsSortMode.None))

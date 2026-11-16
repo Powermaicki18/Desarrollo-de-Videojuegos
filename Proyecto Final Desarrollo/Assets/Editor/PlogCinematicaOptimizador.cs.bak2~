@@ -1,0 +1,122 @@
+using System.Collections.Generic;
+using System.Linq;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+
+// Plog > Optimizar > Cinematica abierta: borra del escenario de la cinematica todo lo que ninguna camara llega a ver
+// y marca como estatico lo que no se mueve. Solo se aplica a las escenas de cinematica (nunca a los mapas originales).
+public static partial class PlogCinematicaIntroBuilder
+{
+    [MenuItem("Plog/Optimizar/3 Cinematica abierta (borra lo que no se ve + estaticos)")]
+    public static void OptimizarCinematicaAbierta()
+    {
+        var scene = EditorSceneManager.GetActiveScene();
+        var ctl = Object.FindFirstObjectByType<CinematicaIntroController>();
+        if (ctl == null || !scene.path.Contains("Cinematica")) { EditorUtility.DisplayDialog("Optimizar cinematica", "Abre primero CinematicaIntro o CinematicaFinal.", "OK"); return; }
+        if (!EditorUtility.DisplayDialog("Optimizar cinematica",
+            "Se borraran de ESTA escena los objetos que ninguna toma llega a ver (se hace una copia de respaldo de la escena antes). Si despues mueves las camaras, lo borrado no vuelve; en ese caso vuelve a crear la cinematica.", "Optimizar", "Cancelar")) return;
+        EditorSceneManager.SaveScene(scene);
+        string resp = AssetDatabase.GenerateUniqueAssetPath(scene.path.Replace(".unity", "_sin_optimizar.unity"));
+        AssetDatabase.CopyAsset(scene.path, resp);
+        OptimizarCinematica(ctl);
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
+        Debug.Log("[Optimizar] Respaldo de la escena sin optimizar: " + resp);
+    }
+
+    static void OptimizarCinematica(CinematicaIntroController ctl)
+    {
+        var scene = ctl.gameObject.scene;
+
+        // set de la cinematica (actores, tomas, etc.) y todo lo que se mueve: no se borra ni se marca estatico
+        var protegidos = new HashSet<Transform>();
+        foreach (var r in scene.GetRootGameObjects())
+            if (r.name.StartsWith("Set_Cinematica") || r.transform == ctl.transform.root) protegidos.Add(r.transform);
+        var moviles = new HashSet<Transform>();
+        foreach (var t in ctl.tomas) foreach (var a in t.actores) if (a.actor != null) moviles.Add(a.actor);
+        if (ctl.girar != null) foreach (var g in ctl.girar) if (g != null) moviles.Add(g);
+        bool Prot(Transform t) { for (var x = t; x != null; x = x.parent) if (protegidos.Contains(x)) return true; return false; }
+        bool Mov(Transform t) { for (var x = t; x != null; x = x.parent) if (moviles.Contains(x) || x.GetComponent<Animator>() != null) return true; return false; }
+
+        // 1) los prefabs del escenario se desempaquetan (en esta copia) para poder borrar sus partes
+        var prefabs = Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .Where(x => x.gameObject.scene == scene && !Prot(x) && PrefabUtility.IsOutermostPrefabInstanceRoot(x.gameObject)).Select(x => x.gameObject).ToList();
+        foreach (var p in prefabs) PrefabUtility.UnpackPrefabInstance(p, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
+
+        // 2) volumen que ven las camaras (todas las tomas, varias muestras; aspecto muy ancho por si el celular es alargado)
+        var frustums = new List<Plane[]>();
+        var posCam = new List<Vector3>();
+        float far = ctl.camara != null ? ctl.camara.farClipPlane : 500f;
+        void Muestras(Transform a, Transform b, float f0, float f1, Transform enfocar, float alt)
+        {
+            if (a == null) return; if (b == null) b = a;
+            for (int i = 0; i <= 10; i++)
+            {
+                float k = i / 10f;
+                Vector3 pos = Vector3.Lerp(a.position, b.position, k);
+                var rot = Quaternion.Slerp(a.rotation, b.rotation, k);
+                if (enfocar != null) { var d = enfocar.position + Vector3.up * alt - pos; if (d.sqrMagnitude > 0.01f) rot = Quaternion.LookRotation(d.normalized, Vector3.up); }
+                float fov = Mathf.Min(120f, Mathf.Lerp(f0, f1, k) + 15f);   // bastante margen
+                var vista = Matrix4x4.Scale(new Vector3(1f, 1f, -1f)) * Matrix4x4.TRS(pos, rot, Vector3.one).inverse;
+                var proy = Matrix4x4.Perspective(fov, 2.6f, 0.1f, far);       // aspecto muy ancho (celulares alargados)
+                frustums.Add(GeometryUtility.CalculateFrustumPlanes(proy * vista));
+                posCam.Add(pos);
+            }
+        }
+        foreach (var t in ctl.tomas)
+        {
+            float f0 = t.fovInicio > 0f ? t.fovInicio : ctl.fovPorDefecto;
+            float f1 = t.fovFin > 0f ? t.fovFin : f0;
+            Muestras(t.camaraInicio, t.camaraFin, f0, f1, t.enfocar, t.alturaEnfoque);
+            if (t.panelDividido) Muestras(t.camara2Inicio, t.camara2Fin, f0, f1, null, 0f);
+        }
+
+        // 3) que renderers no se ven nunca
+        var rends = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None).Where(r => r.gameObject.scene == scene && !Prot(r.transform)).ToList();
+        var ocultos = new HashSet<Renderer>();
+        foreach (var r in rends)
+        {
+            if (r is ParticleSystemRenderer) continue;
+            if (!r.enabled || !r.gameObject.activeInHierarchy) { ocultos.Add(r); continue; }
+            var b = r.bounds;
+            if (b.size.magnitude > 40f) continue;                           // suelos, paredes y mesetas enormes: se conservan siempre
+            bool visible = false;
+            foreach (var pc in posCam) if (b.SqrDistance(pc) < 45f * 45f) { visible = true; break; }   // todo lo cercano a una camara se conserva
+            b.Expand(12f);                                                   // margen: asi no se pierden sombras que entran a cuadro
+            if (!visible) foreach (var pl in frustums) if (GeometryUtility.TestPlanesAABB(pl, b)) { visible = true; break; }
+            if (!visible) ocultos.Add(r);
+        }
+        var borrar = new List<GameObject>();
+        foreach (var r in ocultos)
+        {
+            var g = r.gameObject;
+            if (g.GetComponentInChildren<Light>(true) || g.GetComponentInChildren<Camera>(true) || g.GetComponentInChildren<ReflectionProbe>(true) || g.GetComponentInChildren<AudioListener>(true)) continue;
+            if (g.GetComponentsInChildren<Renderer>(true).All(x => ocultos.Contains(x))) borrar.Add(g);
+        }
+        borrar = borrar.OrderBy(g => { int d = 0; for (var x = g.transform; x.parent != null; x = x.parent) d++; return d; }).ToList();
+        int nBorrados = 0;
+        foreach (var g in borrar) if (g != null) { Object.DestroyImmediate(g); nBorrados++; }
+
+        // 4) colliders (en una cinematica no sirven) y objetos que quedaron vacios
+        int nCol = 0;
+        foreach (var c in Object.FindObjectsByType<Collider>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            if (c != null && c.gameObject.scene == scene && !Prot(c.transform)) { Object.DestroyImmediate(c); nCol++; }
+        int nVacios = 0;
+        for (int pasada = 0; pasada < 4; pasada++)
+            foreach (var tr in Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (tr != null && tr.gameObject.scene == scene && tr.parent != null && !Prot(tr) && tr.childCount == 0 && tr.GetComponents<Component>().Length == 1) { Object.DestroyImmediate(tr.gameObject); nVacios++; }
+
+        // 5) estaticos: todo lo que tiene malla y no se mueve (conserva los flags que ya tenia, p. ej. la iluminacion)
+        var add = StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic | StaticEditorFlags.ReflectionProbeStatic;
+        int nEst = 0;
+        foreach (var mr in Object.FindObjectsByType<MeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (mr.gameObject.scene != scene || Mov(mr.transform)) continue;
+            var f = GameObjectUtility.GetStaticEditorFlags(mr.gameObject);
+            if ((f & add) == add) continue;
+            GameObjectUtility.SetStaticEditorFlags(mr.gameObject, f | add); nEst++;
+        }
+        Debug.Log("[Optimizar] Cinematica: " + nBorrados + " objetos borrados (no se ven), " + nCol + " colliders y " + nVacios + " objetos vacios quitados; " + nEst + " objetos marcados como estaticos.");
+    }
+}

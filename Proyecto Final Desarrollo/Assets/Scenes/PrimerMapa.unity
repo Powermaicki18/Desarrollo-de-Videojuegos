@@ -10327,7 +10327,7 @@ MonoBehaviour:
   m_OverrideVoxelSize: 0
   m_VoxelSize: 0.1
   m_MinRegionArea: 2
-  m_NavMeshData: {fileID: 23800000, guid: 4ef3d71d1f4fd854d8b481d0f9836db5, type: 2}
+  m_NavMeshData: {fileID: 23800000, guid: 548a0948d07275142a9580e8fe704647, type: 2}
   m_BuildHeightMesh: 0
 --- !u!4 &236219173
 Transform:
@@ -17712,6 +17712,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlogHealBeacon
   readyColor: {r: 0.25, g: 1, b: 0.45, a: 1}
   cooldownColor: {r: 0.55, g: 0.6, b: 0.6, a: 1}
+  radioManual: 0
+  radioMaximo: 3
+  escalaAros: 1
   brilloEnLaBase: 1
   intensidadBrillo: 1.6
   aroDeLuz: 1
@@ -54245,6 +54248,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlogHealBeacon
   readyColor: {r: 0.25, g: 1, b: 0.45, a: 1}
   cooldownColor: {r: 0.55, g: 0.6, b: 0.6, a: 1}
+  radioManual: 0
+  radioMaximo: 3
+  escalaAros: 1
   brilloEnLaBase: 1
   intensidadBrillo: 1.6
   aroDeLuz: 1
@@ -78199,6 +78205,11 @@ MonoBehaviour:
   duracionPop: 0.4
   escalaInicial: 0.75
   escalaRebote: 1.05
+  animatorJugador: {fileID: 0}
+  usarDuracionDelClip: 1
+  nombreClipMuerte: death
+  esperaFija: 2.5
+  pausaExtra: 0.8
 --- !u!4 &1789405412
 Transform:
   m_ObjectHideFlags: 0

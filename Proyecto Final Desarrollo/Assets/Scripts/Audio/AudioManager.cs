@@ -61,8 +61,8 @@ public class AudioManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        MusicOn = PlayerPrefs.GetInt(MusicKey, 1) == 1;
-        SfxOn = PlayerPrefs.GetInt(SfxKey, 1) == 1;
+        // El audio SIEMPRE arranca activado al abrir el juego (no se recuerda lo de la partida anterior).
+        ReiniciarAudio();
 
         if (!musicSource) musicSource = gameObject.AddComponent<AudioSource>();
         musicSource.loop = true;
@@ -89,6 +89,12 @@ public class AudioManager : MonoBehaviour
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        // Al volver al menu principal el audio se reinicia; en cualquier escena se corrige un mute que haya quedado pegado.
+        if (scene.name == "MenuPrincipal") ReiniciarAudio();
+        if (musicSource) musicSource.mute = !MusicOn;
+        if (sfxSource) sfxSource.mute = !SfxOn;
+        AudioListener.volume = 1f;
+        AudioListener.pause = false;
         foreach (var m in sceneMusic)
         {
             if (m.sceneName == scene.name)
@@ -98,6 +104,20 @@ public class AudioManager : MonoBehaviour
             }
         }
         StopMusic();   // escena sin música asignada
+    }
+
+    /// <summary>Vuelve musica y efectos a ENCENDIDO (y borra lo guardado).</summary>
+    public static void ReiniciarAudio()
+    {
+        MusicOn = true; SfxOn = true;
+        PlayerPrefs.SetInt(MusicKey, 1); PlayerPrefs.SetInt(SfxKey, 1);
+        AudioListener.volume = 1f; AudioListener.pause = false;
+        if (Instance != null)
+        {
+            if (Instance.musicSource) Instance.musicSource.mute = false;
+            if (Instance.sfxSource) Instance.sfxSource.mute = false;
+        }
+        OnSettingsChanged?.Invoke();
     }
 
     // ---------- Música ----------

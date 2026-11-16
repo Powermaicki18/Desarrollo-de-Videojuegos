@@ -1,0 +1,241 @@
+using System.Collections;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+// Pantalla de eleccion de mejora (cartas). Se crea sola por codigo; el juego puede estar pausado (usa tiempo sin escala).
+public static class PlogCartasUI
+{
+    public static void Mostrar(System.Action alTerminar)
+    {
+        var go = new GameObject("PlogCartasUI");
+        go.AddComponent<PlogCartasUIHost>().Iniciar(alTerminar);
+    }
+}
+
+public class PlogCartasUIHost : MonoBehaviour
+{
+    const float AnchoCarta = 330f, AltoCarta = 440f, Separacion = 90f, YCartas = -30f;
+    // Fraccion del marco de seleccion que es "hueco" (para que el hueco coincida con la carta)
+    const float HuecoSelW = 0.6833f, HuecoSelH = 0.7585f;
+    static Texture2D Tex(string n) { return Resources.Load<Texture2D>("Cartas/UI/" + n); }
+
+    RawImage[] marcos;
+    Texture2D texBotonOn, texBotonOff;
+    RawImage botonRaw;
+
+    System.Action alTerminar;
+    List<TipoMejora> opciones;
+    RectTransform[] cartas;
+    RawImage[] imagenes;
+    float[] escalaActual;
+    int elegida = -1;
+    bool terminando;
+    float t0;
+    Button botonElegir;
+    Image fondoBoton;
+    TextMeshProUGUI textoBoton;
+
+    public void Iniciar(System.Action cb)
+    {
+        alTerminar = cb;
+        var todas = new List<TipoMejora>((TipoMejora[])System.Enum.GetValues(typeof(TipoMejora)));
+        for (int i = todas.Count - 1; i > 0; i--) { int j = Random.Range(0, i + 1); var tmp = todas[i]; todas[i] = todas[j]; todas[j] = tmp; }
+        opciones = todas.GetRange(0, Mathf.Min(PlogMejoras.OpcionesPorEleccion, todas.Count));
+        t0 = Time.unscaledTime;
+        // Si existe el prefab editable (Plog > Crear pantalla de cartas editable) se usa ese; si no, se construye por codigo.
+        var pf = Resources.Load<GameObject>("Cartas/PantallaCartas");
+        if (pf != null && Enlazar(pf)) return;
+        Construir();
+    }
+
+    // Usa el prefab Resources/Cartas/PantallaCartas: posiciones, tamanos, textos y colores se editan en Unity.
+    bool Enlazar(GameObject pf)
+    {
+        var pt = pf.transform;
+        if (pt.Find("BotonElegir") == null || pt.Find("Carta_0") == null) return false;
+        var inst = Instantiate(pf, transform); inst.name = "PantallaCartas";
+        var r = inst.transform;
+        int slots = 0; while (r.Find("Carta_" + slots) != null) slots++;
+        int n = Mathf.Min(opciones.Count, slots);
+        for (int i = n; i < slots; i++) r.Find("Carta_" + i).gameObject.SetActive(false);
+        cartas = new RectTransform[n]; imagenes = new RawImage[n]; escalaActual = new float[n]; marcos = new RawImage[n];
+        for (int i = 0; i < n; i++)
+        {
+            int idx = i;
+            var rt = (RectTransform)r.Find("Carta_" + i);
+            var raw = rt.GetComponent<RawImage>(); raw.texture = PlogMejoras.Carta(opciones[i]); raw.color = Color.white;
+            var b = rt.GetComponent<Button>();
+            if (b != null) { b.onClick.RemoveAllListeners(); b.onClick.AddListener(() => Seleccionar(idx)); }
+            var m = rt.Find("MarcoSeleccion");
+            if (m != null) { marcos[i] = m.GetComponent<RawImage>(); if (marcos[i] != null) { var c = marcos[i].color; c.a = 0f; marcos[i].color = c; } }
+            cartas[i] = rt; imagenes[i] = raw; escalaActual[i] = 1f; rt.localScale = Vector3.zero;
+        }
+        var bt = r.Find("BotonElegir");
+        fondoBoton = bt.GetComponent<Image>(); botonElegir = bt.GetComponent<Button>();
+        botonElegir.onClick.RemoveAllListeners(); botonElegir.onClick.AddListener(Confirmar);
+        texBotonOn = Tex("Boton_Elegir"); texBotonOff = Tex("Boton_Elegir_Off");
+        var arte = bt.Find("Arte"); if (arte != null) botonRaw = arte.GetComponent<RawImage>();
+        if (botonRaw != null && texBotonOff != null) botonRaw.texture = texBotonOff;
+        var tx = bt.Find("Texto"); if (tx != null) textoBoton = tx.GetComponent<TextMeshProUGUI>();
+        botonElegir.interactable = false;
+        if (textoBoton != null) textoBoton.alpha = 0.6f;
+        return true;
+    }
+
+    static float Rebote(float x)
+    {
+        const float c1 = 1.70158f, c3 = c1 + 1f;
+        x = Mathf.Clamp01(x) - 1f;
+        return 1f + c3 * x * x * x + c1 * x * x;
+    }
+
+    static Image Img(Transform p, string n, Color c)
+    {
+        var g = new GameObject(n, typeof(RectTransform), typeof(Image));
+        g.transform.SetParent(p, false);
+        var im = g.GetComponent<Image>(); im.color = c;
+        return im;
+    }
+
+    static TextMeshProUGUI Txt(Transform p, string n, string s, float size, Vector2 pos, Vector2 dim)
+    {
+        var g = new GameObject(n, typeof(RectTransform));
+        g.transform.SetParent(p, false);
+        var rt = g.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f); rt.anchoredPosition = pos; rt.sizeDelta = dim;
+        var t = g.AddComponent<TextMeshProUGUI>();
+        t.text = s; t.fontSize = size; t.alignment = TextAlignmentOptions.Center; t.fontStyle = FontStyles.Bold;
+        t.color = Color.white; t.raycastTarget = false; t.outlineWidth = 0.22f; t.outlineColor = new Color32(30, 10, 50, 255);
+        return t;
+    }
+
+    void Construir()
+    {
+        var cv = gameObject.AddComponent<Canvas>(); cv.renderMode = RenderMode.ScreenSpaceOverlay; cv.sortingOrder = 300;
+        var sc = gameObject.AddComponent<CanvasScaler>();
+        sc.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; sc.referenceResolution = new Vector2(1920, 1080); sc.matchWidthOrHeight = 0.5f;
+        gameObject.AddComponent<GraphicRaycaster>();
+
+        var fondo = Img(transform, "Fondo", new Color(0.05f, 0.02f, 0.12f, 0.92f));
+        var frt = fondo.rectTransform; frt.anchorMin = Vector2.zero; frt.anchorMax = Vector2.one; frt.offsetMin = frt.offsetMax = Vector2.zero;
+
+        var texPantalla = Tex("Marco_Pantalla");
+        if (texPantalla != null)
+        {
+            var mp = new GameObject("MarcoPantalla", typeof(RectTransform), typeof(RawImage));
+            mp.transform.SetParent(transform, false);
+            var mr = (RectTransform)mp.transform; mr.anchorMin = Vector2.zero; mr.anchorMax = Vector2.one; mr.offsetMin = mr.offsetMax = Vector2.zero;
+            var mri = mp.GetComponent<RawImage>(); mri.texture = texPantalla; mri.raycastTarget = false;
+        }
+        var texBanner = Tex("Banner_Titulo");
+        if (texBanner != null)
+        {
+            var bn = new GameObject("BannerTitulo", typeof(RectTransform), typeof(RawImage));
+            bn.transform.SetParent(transform, false);
+            var br = (RectTransform)bn.transform; br.anchorMin = br.anchorMax = new Vector2(0.5f, 0.5f);
+            br.sizeDelta = new Vector2(900f, 249f); br.anchoredPosition = new Vector2(0f, 392f);
+            var bi = bn.GetComponent<RawImage>(); bi.texture = texBanner; bi.raycastTarget = false;
+        }
+
+        var tit = Txt(transform, "Titulo", "ELIGE UNA MEJORA", 64, new Vector2(0f, 392f), new Vector2(640f, 100f));
+        if (texBanner != null) { tit.color = new Color32(255, 246, 214, 255); tit.outlineColor = new Color32(90, 40, 10, 255); }
+        Txt(transform, "Subtitulo", "Se aplicará en el siguiente nivel", 34, new Vector2(0f, 262f), new Vector2(1400f, 50f));
+
+        int n = opciones.Count;
+        cartas = new RectTransform[n]; imagenes = new RawImage[n]; escalaActual = new float[n]; marcos = new RawImage[n];
+        var texSel = Tex("Marco_Seleccion");
+        for (int i = 0; i < n; i++)
+        {
+            int idx = i;
+            var g = new GameObject("Carta_" + opciones[i], typeof(RectTransform), typeof(RawImage), typeof(Button));
+            g.transform.SetParent(transform, false);
+            var rt = g.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(AnchoCarta, AltoCarta);
+            rt.anchoredPosition = new Vector2((i - (n - 1) * 0.5f) * (AnchoCarta + Separacion), YCartas);
+            var raw = g.GetComponent<RawImage>(); raw.texture = PlogMejoras.Carta(opciones[i]);
+            var b = g.GetComponent<Button>(); b.transition = Selectable.Transition.None; b.targetGraphic = raw;
+            b.onClick.AddListener(() => Seleccionar(idx));
+            if (texSel != null)
+            {
+                var mg = new GameObject("MarcoSeleccion", typeof(RectTransform), typeof(RawImage));
+                mg.transform.SetParent(g.transform, false);
+                var mrt = (RectTransform)mg.transform; mrt.anchorMin = mrt.anchorMax = new Vector2(0.5f, 0.5f);
+                mrt.sizeDelta = new Vector2(AnchoCarta / HuecoSelW, AltoCarta / HuecoSelH); mrt.anchoredPosition = new Vector2(0f, 3f);
+                var mri = mg.GetComponent<RawImage>(); mri.texture = texSel; mri.raycastTarget = false;
+                mri.color = new Color(1f, 1f, 1f, 0f);
+                marcos[i] = mri;
+            }
+            cartas[i] = rt; imagenes[i] = raw; escalaActual[i] = 1f;
+            rt.localScale = Vector3.zero;
+        }
+
+        texBotonOn = Tex("Boton_Elegir"); texBotonOff = Tex("Boton_Elegir_Off");
+        fondoBoton = Img(transform, "BotonElegir", new Color(0.2f, 0.75f, 0.3f, 1f));
+        var brt = fondoBoton.rectTransform;
+        brt.anchorMin = brt.anchorMax = new Vector2(0.5f, 0.5f); brt.sizeDelta = new Vector2(500f, 103f); brt.anchoredPosition = new Vector2(0f, -325f);
+        if (texBotonOn != null)
+        {
+            fondoBoton.color = new Color(1f, 1f, 1f, 0f); // el Image queda invisible; solo recibe el toque
+            var rb = new GameObject("Arte", typeof(RectTransform), typeof(RawImage));
+            rb.transform.SetParent(fondoBoton.transform, false);
+            var rbr = (RectTransform)rb.transform; rbr.anchorMin = Vector2.zero; rbr.anchorMax = Vector2.one; rbr.offsetMin = rbr.offsetMax = Vector2.zero;
+            botonRaw = rb.GetComponent<RawImage>(); botonRaw.texture = texBotonOff; botonRaw.raycastTarget = false;
+        }
+        botonElegir = fondoBoton.gameObject.AddComponent<Button>(); botonElegir.targetGraphic = fondoBoton;
+        botonElegir.onClick.AddListener(Confirmar);
+        textoBoton = Txt(fondoBoton.transform, "Texto", "ELEGIR", 52, Vector2.zero, new Vector2(400f, 90f));
+        botonElegir.interactable = false;
+        if (botonRaw == null) fondoBoton.color = new Color(0.35f, 0.35f, 0.35f, 0.7f);
+        textoBoton.alpha = 0.6f;
+    }
+
+    void Seleccionar(int i)
+    {
+        if (terminando) return;
+        elegida = i;
+        botonElegir.interactable = true;
+        if (botonRaw != null) botonRaw.texture = texBotonOn; else fondoBoton.color = new Color(0.2f, 0.75f, 0.3f, 1f);
+        if (textoBoton != null) textoBoton.alpha = 1f;
+    }
+
+    void Confirmar()
+    {
+        if (terminando || elegida < 0) return;
+        terminando = true;
+        PlogMejoras.Elegir(opciones[elegida]);
+        StartCoroutine(Salida());
+    }
+
+    IEnumerator Salida()
+    {
+        float t = 0f;
+        while (t < 0.55f)
+        {
+            t += Time.unscaledDeltaTime;
+            escalaActual[elegida] = 1.12f + 0.25f * Mathf.Sin(Mathf.Clamp01(t / 0.55f) * Mathf.PI);
+            yield return null;
+        }
+        if (alTerminar != null) alTerminar();
+    }
+
+    void Update()
+    {
+        if (cartas == null) return;
+        for (int i = 0; i < cartas.Length; i++)
+        {
+            float meta = elegida < 0 ? 1f : (i == elegida ? 1.12f : 0.9f);
+            if (!terminando) escalaActual[i] = Mathf.Lerp(escalaActual[i], meta, Time.unscaledDeltaTime * 12f);
+            float pop = Rebote((Time.unscaledTime - t0 - i * 0.12f) / 0.45f);
+            cartas[i].localScale = Vector3.one * (escalaActual[i] * pop);
+            Color c = (elegida < 0 || i == elegida) ? Color.white : new Color(0.55f, 0.55f, 0.55f, 1f);
+            if (marcos != null && marcos[i] != null)
+            {
+                var mc = marcos[i].color; mc.a = Mathf.Lerp(mc.a, i == elegida ? 1f : 0f, Time.unscaledDeltaTime * 14f); marcos[i].color = mc;
+            }
+            imagenes[i].color = Color.Lerp(imagenes[i].color, c, Time.unscaledDeltaTime * 12f);
+        }
+    }
+}
