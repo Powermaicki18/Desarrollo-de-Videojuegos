@@ -14053,7 +14053,7 @@ MonoBehaviour:
   m_OverrideVoxelSize: 0
   m_VoxelSize: 0.1
   m_MinRegionArea: 2
-  m_NavMeshData: {fileID: 23800000, guid: fb4c50fb5993ce44abf7f0eb01eff85f, type: 2}
+  m_NavMeshData: {fileID: 0}
   m_BuildHeightMesh: 0
 --- !u!1 &735659149
 GameObject:
@@ -21847,6 +21847,7 @@ MonoBehaviour:
   escalaInicial: 0.75
   escalaRebote: 1.05
   siguienteEscena: MenuPrincipal
+  mostrarCartas: 1
   totemPrefab: {fileID: 0}
   totemMaterial: {fileID: 2100000, guid: a1b2c3d4e5f60718293a4b5c6d7e8f11, type: 2}
   puntoTotem: {fileID: 960433060}
