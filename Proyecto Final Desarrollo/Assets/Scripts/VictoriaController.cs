@@ -21,6 +21,8 @@ public class VictoriaController : MonoBehaviour
 
     [Header("Cartas de mejora")]
     [SerializeField] private bool mostrarCartas = true;
+    [Tooltip("Al ganar NO muestra el panel de nivel completado: pasa directo a la siguiente escena (usar en el ultimo nivel, porque la cinematica final ya muestra su propio panel).")]
+    [SerializeField] private bool saltarPanel = false;
     private bool cartasMostradas = false;
 
     [Header("Totem de victoria")]
@@ -302,6 +304,13 @@ public class VictoriaController : MonoBehaviour
         }
 
         victoriaActiva = true;
+
+        if (saltarPanel)
+        {
+            Time.timeScale = 1f;
+            CargarSiguienteEscena();
+            return;
+        }
 
         // Detener la partida
         Time.timeScale = 0f;

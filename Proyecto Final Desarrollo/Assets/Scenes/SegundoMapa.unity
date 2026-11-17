@@ -24893,6 +24893,7 @@ MonoBehaviour:
   escalaRebote: 1.05
   siguienteEscena: CinematicaFinal
   mostrarCartas: 1
+  saltarPanel: 1
   totemPrefab: {fileID: 3414048395266971327, guid: c704d8b880a5bc64c91ecf07d9caddb7, type: 3}
   totemMaterial: {fileID: 2100000, guid: a1b2c3d4e5f60718293a4b5c6d7e8f11, type: 2}
   puntoTotem: {fileID: 960433060}
